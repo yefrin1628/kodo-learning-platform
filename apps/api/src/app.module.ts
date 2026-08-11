@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CoursesModule } from './courses/courses.module';
 import { LessonsModule } from './lessons/lessons.module';
+import { LearningModule } from './learning/learning.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { LessonsModule } from './lessons/lessons.module';
     UsersModule,
     CoursesModule,
     LessonsModule,
+    LearningModule,
   ],
   providers: [
     {

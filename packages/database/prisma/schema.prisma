@@ -3,8 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  // Dedicated, disposable database used by `prisma migrate dev`/`diff` to
+  // compute schema diffs. Must NEVER point at DATABASE_URL itself — doing
+  // that once corrupted kodo_dev's own _prisma_migrations bookkeeping.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 // ===================== Enums =====================
@@ -302,14 +306,16 @@ model LessonProgress {
 /// Intento a nivel de ejercicio individual — la granularidad que permitirá
 /// al backend validar XP/recompensas sin confiar en lo que envíe el cliente.
 model ExerciseProgress {
-  id            String    @id @default(cuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exerciseId    String
-  exercise      Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  attempts      Int       @default(0)
-  correct       Boolean   @default(false)
-  lastAttemptAt DateTime  @default(now())
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId     String
+  exercise       Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  attempts       Int       @default(0)
+  correctAnswers Int       @default(0)
+  mistakes       Int       @default(0)
+  completed      Boolean   @default(false) // ever answered correctly at least once
+  lastAttemptAt  DateTime  @default(now())
 
   @@unique([userId, exerciseId])
   @@map("exercise_progress")
