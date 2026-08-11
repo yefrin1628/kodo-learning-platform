@@ -834,7 +834,63 @@ const TESTI=[
  {n:'Diego R.',r:'Kodo Languages · Inglés',q:'Lecciones cortas: escuchar, traducir, hablar. Mi racha de idiomas ya va por 20 días.',a:'🧑'},
  {n:'Ana P.',r:'Kodo Code · Python',q:'Subir de nivel con confeti y ver a Kody celebrar es la mejor dopamina de mi día.',a:'👩‍🎓'}
 ];
-let U=null,view='landing',LS=null,OB=null,pending=[],curTab='code',curCourse=null,tickTimer=null,REC=null;
+let U=null,view='landing',LS=null,OB=null,pending=[],curTab='code',curCourse=null,tickTimer=null,REC=null,authMode='register';
+
+// ===== Kodo API — capa real sobre NestJS (backend = fuente de verdad para
+// XP/progreso/logros; el resto de esta app sigue controlando la experiencia
+// visual, sin cambios). Ver docs/API_CONTRACT.md. =====
+const API_BASE='http://localhost:4000';
+const REFRESH_KEY='kodo_refresh_token';
+let ACCESS_TOKEN=null;
+function getRefreshToken(){try{return localStorage.getItem(REFRESH_KEY);}catch(e){return null;}}
+function setRefreshToken(t){try{if(t)localStorage.setItem(REFRESH_KEY,t);else localStorage.removeItem(REFRESH_KEY);}catch(e){}}
+const KodoAPI={
+ async request(method,path,body,opts){
+  opts=opts||{};
+  const headers={'Content-Type':'application/json'};
+  if(ACCESS_TOKEN&&!opts.noAuth)headers['Authorization']='Bearer '+ACCESS_TOKEN;
+  const res=await fetch(API_BASE+path,{method:method,headers:headers,body:body?JSON.stringify(body):undefined});
+  let data=null;try{data=await res.json();}catch(e){}
+  if(!res.ok){const msg=data&&(Array.isArray(data.message)?data.message.join(', '):data.message);const err=new Error(msg||('Error '+res.status));err.status=res.status;err.data=data;throw err;}
+  return data;
+ },
+ register(email,password,displayName,username){return this.request('POST','/auth/register',{email,password,displayName,username},{noAuth:true});},
+ login(email,password){return this.request('POST','/auth/login',{email,password},{noAuth:true});},
+ refresh(refreshToken){return this.request('POST','/auth/refresh',{refreshToken},{noAuth:true});},
+ logout(refreshToken){return this.request('POST','/auth/logout',{refreshToken},{noAuth:true}).catch(function(){});},
+ me(){return this.request('GET','/me');},
+ ranking(period){return this.request('GET','/ranking?period='+(period||'weekly'));}
+};
+function slugUsername(name){
+ let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+ if(base.length<3)base='kodo_'+base;
+ return base.slice(0,16);
+}
+async function registerWithRetry(email,password,displayName){
+ const base=slugUsername(displayName)||'kodo';
+ for(let i=0;i<5;i++){
+  const username=i===0?base:(base+Math.floor(1000+Math.random()*9000));
+  try{return await KodoAPI.register(email,password,displayName,username);}
+  catch(e){if(e.status===409&&/usuario/i.test(e.message||'')){continue;}throw e;}
+ }
+ throw new Error('No se pudo generar un nombre de usuario disponible.');
+}
+/** Sobrepone la identidad/estadísticas reales del servidor sobre U, conservando
+ * el progreso local ya guardado (lecciones/items/etc.) cuando es la misma cuenta. */
+function syncUserFromServer(serverUser){
+ const existing=UserRepo.load();
+ const sameAccount=existing&&existing.email===serverUser.email;
+ const profile=serverUser.userProfile||serverUser.profile||{};
+ U=sameAccount?existing:blankUser(profile.displayName||'',serverUser.email);
+ U.v=4;U.userId=serverUser.id;U.email=serverUser.email;
+ if(profile.displayName)U.name=profile.displayName;
+ if(profile.username)U.username=profile.username;
+ const stats=serverUser.userStats;
+ if(stats){U.xp=stats.xp;U.gems=stats.gems;U.hearts=stats.hearts;}
+ const streak=serverUser.streak;
+ if(streak){U.streak=streak.current;U.bestStreak=streak.best;}
+ saveU();
+}
 function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,
  xp:0,gems:30,hearts:5,pro:false,proPlan:'free',shield:0,
  streak:0,bestStreak:0,lastActive:'',week:[],weekXP:0,weekKey:weekKey(),
@@ -1622,7 +1678,7 @@ function vLanding(){
  const loggedIn=U&&U.onb;
  return '<div class="l-nav glass">'+logoHTML()
  +'<div class="l-links"><a onclick="scrollTo2(\'cursos\')">Cursos</a><a onclick="scrollTo2(\'metodo\')">Método</a><a onclick="scrollTo2(\'testimonios\')">Opiniones</a><a onclick="go(\'pro\')">Pro</a></div>'
- +(loggedIn?'<button class="btn btn-ghost sm" onclick="go(\'home\')">Continuar</button>':'<button class="btn btn-ghost sm" onclick="go(\'auth\')">Ingresar</button>')
+ +(loggedIn?'<button class="btn btn-ghost sm" onclick="go(\'home\')">Continuar</button>':'<button class="btn btn-ghost sm" onclick="authMode=\'login\';go(\'auth\')">Ingresar</button>')
  +'<button class="btn btn-p sm" onclick="startNow()">Empezar gratis</button></div>'
  +'<section class="hero"><div><div class="hero-badge">💻 Code &nbsp;·&nbsp; 🌎 Languages · dos productos, una app</div><h1>Aprende código. Aprende idiomas. <span class="grad">Construye tu futuro.</span></h1><p>Kodo Code te hace <b>escribir y ejecutar código real</b> desde el día uno. Kodo Languages te enseña a hablar con lecciones cortas, audio y repetición. Progreso independiente, misma racha. Gratis para empezar.</p><div class="hero-cta"><button class="btn btn-p big" onclick="startNow()">EMPEZAR GRATIS</button><button class="btn btn-ghost big" onclick="'+(loggedIn?'go(\'home\')':'go(\'auth\')')+'">'+(loggedIn?'CONTINUAR →':'YA TENGO CUENTA')+'</button></div><p style="color:var(--t2);font-size:13px;font-weight:700;margin-top:16px">✓ Sin tarjeta &nbsp;·&nbsp; ✓ Sin descargas &nbsp;·&nbsp; ✓ Progreso guardado</p></div>'
  +'<div class="hero-right"><div class="glow" style="background:var(--p);top:0;left:10%"></div><div class="glow" style="background:var(--s);bottom:0;right:0"></div><div class="mock"><img class="mascot" src="'+M_HAPPY+'" alt="Kody"><div class="mock-card mc1"><div class="mc-st"><div>🔥 14 días</div><div>⭐ 640 XP</div></div></div><div class="mock-card mc2"><div class="mc-code">'+hl('const futuro = "tuyo";\nkodo.aprende(futuro);','js')+'</div></div><div class="mock-card mc3"><div style="font-weight:800;font-size:13px;margin-bottom:8px">🇺🇸 Inglés · A2</div><div class="pbar" style="width:150px"><div style="width:65%"></div></div></div><div class="mock-card mc4"><div class="mc-st"><div>💎 120</div><div style="color:#86efac">+20 XP</div></div></div></div></div></section>'
@@ -1646,16 +1702,46 @@ function vLanding(){
 function scrollTo2(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth'});}
 function startNow(){if(U&&U.onb){go('home');return;}if(U){go('onboarding');return;}go('auth');}
 function vAuth(){
+ const isLogin=authMode==='login';
  let cont='';
- if(U){cont='<div class="card" style="padding:18px;display:flex;gap:14px;align-items:center;margin-bottom:20px;cursor:pointer" onclick="go(U.onb?\'home\':\'onboarding\')"><img src="'+M_HAPPY+'" style="width:52px;height:52px;border-radius:50%;object-fit:cover"><div style="flex:1"><b>Continuar como '+esc(U.name)+'</b><div style="color:var(--t2);font-size:13px;font-weight:700">Nivel '+(lvlIndex()+1)+' · '+fmtN(U.xp)+' XP</div></div><span style="font-size:20px">→</span></div>';}
- return '<div class="auth-wrap"><div class="glow" style="background:var(--p);top:10%;left:8%"></div><div class="glow" style="background:var(--s);bottom:8%;right:6%"></div><div class="card auth-card">'+logoHTML()+'<h2>Crea tu cuenta gratis</h2><p class="sub">Tu aventura empieza en menos de un minuto.</p>'+cont+'<div class="field"><label>Nombre</label><input id="f-name" placeholder="Ej: Alex"></div><div class="field"><label>Correo</label><input id="f-mail" type="email" placeholder="tu@correo.com"></div><div class="field"><label>Contraseña</label><input id="f-pass" type="password" placeholder="••••••••"></div><button class="btn btn-p w100 big" onclick="doSignup()">CREAR CUENTA</button><p style="color:var(--t2);font-size:13px;font-weight:600;margin-top:16px;cursor:pointer" onclick="go(\'landing\')">← Volver al inicio</p></div></div>';}
-function doSignup(){
+ if(getRefreshToken()&&!U){cont='<div class="card" style="padding:14px 18px;margin-bottom:20px;color:var(--t2);font-weight:700;font-size:13.5px">🔑 Tienes una sesión guardada en este navegador. Inicia sesión para continuar.</div>';}
+ return '<div class="auth-wrap"><div class="glow" style="background:var(--p);top:10%;left:8%"></div><div class="glow" style="background:var(--s);bottom:8%;right:6%"></div><div class="card auth-card">'+logoHTML()+'<h2>'+(isLogin?'Inicia sesión':'Crea tu cuenta gratis')+'</h2><p class="sub">'+(isLogin?'Continúa tu aventura donde la dejaste.':'Tu aventura empieza en menos de un minuto.')+'</p>'+cont
+ +(isLogin?'':'<div class="field"><label>Nombre</label><input id="f-name" placeholder="Ej: Alex"></div>')
+ +'<div class="field"><label>Correo</label><input id="f-mail" type="email" placeholder="tu@correo.com"></div><div class="field"><label>Contraseña</label><input id="f-pass" type="password" placeholder="••••••••"></div><button id="auth-submit" class="btn btn-p w100 big" onclick="'+(isLogin?'doLogin()':'doRegister()')+'">'+(isLogin?'INICIAR SESIÓN':'CREAR CUENTA')+'</button><p style="color:var(--t2);font-size:13px;font-weight:600;margin-top:16px;cursor:pointer" onclick="toggleAuthMode()">'+(isLogin?'¿No tienes cuenta? Crear una':'¿Ya tienes cuenta? Inicia sesión')+'</p><p style="color:var(--t2);font-size:13px;font-weight:600;margin-top:8px;cursor:pointer" onclick="go(\'landing\')">← Volver al inicio</p></div></div>';}
+function toggleAuthMode(){authMode=authMode==='login'?'register':'login';render();}
+function authBusy(b){const btn=$('#auth-submit');if(btn){btn.disabled=b;btn.textContent=b?'Un momento…':(authMode==='login'?'INICIAR SESIÓN':'CREAR CUENTA');}}
+async function doRegister(){
  const n=$('#f-name').value.trim(),m=$('#f-mail').value.trim(),p=$('#f-pass').value;
  if(n.length<2){toast('✏️ Escribe tu nombre.');return;}
  if(!m.includes('@')){toast('📧 Escribe un correo válido.');return;}
- if(p.length<4){toast('🔒 La contraseña necesita 4+ caracteres.');return;}
- if(U){U.name=n;U.email=m;saveU();}else{U=blankUser(n,m);saveU();}
- sGood();OB=null;go('onboarding');}
+ if(p.length<8){toast('🔒 La contraseña necesita 8+ caracteres.');return;}
+ authBusy(true);
+ try{
+  const res=await registerWithRetry(m,p,n);
+  syncUserFromServer({id:res.user.id,email:res.user.email,profile:res.user.profile});
+  ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);saveU();
+  sGood();OB=null;go('onboarding');
+ }catch(e){sBad();toast('❌ '+(e.message||'No se pudo crear la cuenta.'));}
+ finally{authBusy(false);}
+}
+async function doLogin(){
+ const m=$('#f-mail').value.trim(),p=$('#f-pass').value;
+ if(!m.includes('@')){toast('📧 Escribe un correo válido.');return;}
+ if(!p){toast('🔒 Escribe tu contraseña.');return;}
+ authBusy(true);
+ try{
+  const res=await KodoAPI.login(m,p);
+  syncUserFromServer({id:res.user.id,email:res.user.email,profile:res.user.profile});
+  ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);saveU();
+  sGood();go(U.onb?'home':'onboarding');
+ }catch(e){sBad();toast('❌ '+(e.status===401?'Correo o contraseña incorrectos.':(e.message||'No se pudo iniciar sesión.')));}
+ finally{authBusy(false);}
+}
+async function doLogout(){
+ try{await KodoAPI.logout(getRefreshToken());}catch(e){}
+ ACCESS_TOKEN=null;setRefreshToken(null);U=null;OB=null;authMode='register';
+ toast('👋 Sesión cerrada.');go('landing');
+}
 function obPick(step,val){sClick();if(!OB)OB={step:0,a:{}};
  OB.a[['learn','goal','time','level'][step]]=val;
  if(step<ONB.length-1){OB.step=step+1;}else{OB.step=4;}render();window.scrollTo(0,0);}
@@ -1860,7 +1946,7 @@ function vProfile(){
  ['glasses','headphones','crown','badge'].forEach(k=>{const it=SHOP.find(x=>x.id===k);const owned=U.items.includes(k);
   h+='<div class="card ach'+(owned?'':' lock')+'"><div class="ic">'+it.ic+'</div><b>'+it.name+'</b>'+(owned&&U.equip.hasOwnProperty(k)?'<button class="btn '+(U.equip[k]?'btn-ok':'btn-ghost')+' sm" style="margin-top:10px" onclick="toggleEquip(\''+k+'\')">'+(U.equip[k]?'Equipado ✓':'Equipar')+'</button>':'<p>'+(owned?'En tu colección':'Disponible en la tienda')+'</p>')+'</div>';});
  h+='</div>';
- h+='<div style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap">'+(U.pro?'':'<button class="btn btn-p" onclick="go(\'pro\')">👑 Hazte Pro</button>')+'<button class="btn btn-ghost" onclick="openGoalPicker()">🎯 Cambiar meta diaria</button><button class="btn btn-err" onclick="confirmReset()">Reiniciar demo</button></div>';
+ h+='<div style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap">'+(U.pro?'':'<button class="btn btn-p" onclick="go(\'pro\')">👑 Hazte Pro</button>')+'<button class="btn btn-ghost" onclick="openGoalPicker()">🎯 Cambiar meta diaria</button>'+(U.userId?'<button class="btn btn-ghost" onclick="doLogout()">🚪 Cerrar sesión</button>':'')+'<button class="btn btn-err" onclick="confirmReset()">Reiniciar demo</button></div>';
  return h;}
 function toggleEquip(k){U.equip[k]=!U.equip[k];saveU();sClick();render();}
 function confirmReset(){openModal('<div class="big-n">⚠️</div><h2>¿Reiniciar todo?</h2><p class="sub">Se borrará tu cuenta, progreso, XP y gemas de este navegador. Esta acción no se puede deshacer.</p><button class="btn btn-err w100" onclick="UserRepo.clear();location.reload();">SÍ, BORRAR TODO</button><button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cancelar</button>');}
@@ -2162,9 +2248,23 @@ window.addEventListener('error',function(e){
  d.style.cssText='position:fixed;top:8px;left:8px;right:8px;z-index:999;color:#fca5a5;background:#1A2440;border:1px solid #EF4444;padding:10px;border-radius:10px;font:12px monospace;white-space:pre-wrap';
  d.textContent='Error: '+e.message;
  document.body.appendChild(d);});
-loadU();
-if(U){rollover();view=U.onb?'home':'onboarding';}
-render();
+async function bootAuth(){
+ const rt=getRefreshToken();
+ if(!rt){view='landing';render();return;}
+ try{
+  const tokens=await KodoAPI.refresh(rt);
+  ACCESS_TOKEN=tokens.accessToken;setRefreshToken(tokens.refreshToken);
+  const me=await KodoAPI.me();
+  syncUserFromServer(me);
+  rollover();
+  view=U.onb?'home':'onboarding';
+ }catch(e){
+  ACCESS_TOKEN=null;setRefreshToken(null);U=null;view='landing';
+ }
+ render();
+}
+view='landing';render();
+bootAuth();
 setInterval(function(){if(U)saveU();},15000);
 window.addEventListener('beforeunload',function(){if(U){stopTimer();saveU();}});
 
