@@ -43,6 +43,9 @@ export class ChallengesService {
         create: { userId, challengeId: ch.id, date: t, progress, claimed: true, claimedAt: new Date() },
       });
       if (ch.rewardXp > 0) {
+        await tx.xPTransaction.create({
+          data: { userId, amount: ch.rewardXp, reason: 'CHALLENGE_COMPLETE', metadata: { challengeKey: ch.key } },
+        });
         await tx.userStats.update({ where: { userId }, data: { xp: { increment: ch.rewardXp } } });
       }
       if (ch.rewardGems > 0) {

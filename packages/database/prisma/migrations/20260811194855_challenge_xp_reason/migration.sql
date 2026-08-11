@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "XPReason" ADD VALUE 'CHALLENGE_COMPLETE';
+

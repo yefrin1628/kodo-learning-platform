@@ -53,6 +53,7 @@ enum XPReason {
   PRACTICE
   CEFR_LEVEL_UP
   ACHIEVEMENT
+  CHALLENGE_COMPLETE
 }
 
 enum PlanInterval {

@@ -131,6 +131,14 @@ export class AchievementsService {
           data: { userId, achievementId: achievement.id, xpAwarded: achievement.rewardXp },
         });
         if (achievement.rewardXp > 0) {
+          await tx.xPTransaction.create({
+            data: {
+              userId,
+              amount: achievement.rewardXp,
+              reason: 'ACHIEVEMENT',
+              metadata: { achievementKey: achievement.key },
+            },
+          });
           await tx.userStats.update({ where: { userId }, data: { xp: { increment: achievement.rewardXp } } });
         }
         unlocked.push({ key: achievement.key, name: achievement.name, icon: achievement.icon, xp: achievement.rewardXp });
