@@ -55,7 +55,7 @@ export class AuthService {
     if (existingEmail) {
       throw new ConflictException('Ese correo ya está registrado.');
     }
-    const existingUsername = await this.prisma.profile.findUnique({ where: { username: dto.username } });
+    const existingUsername = await this.prisma.userProfile.findUnique({ where: { username: dto.username } });
     if (existingUsername) {
       throw new ConflictException('Ese nombre de usuario ya está en uso.');
     }
@@ -66,17 +66,20 @@ export class AuthService {
       data: {
         email: dto.email,
         passwordHash,
-        profile: {
+        userProfile: {
           create: {
             username: dto.username,
             displayName: dto.displayName,
           },
         },
+        userStats: {
+          create: {},
+        },
         streak: {
           create: {},
         },
       },
-      include: { profile: true },
+      include: { userProfile: true },
     });
 
     const tokens = await this.issueTokenPair(user.id);
@@ -86,7 +89,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      include: { profile: true },
+      include: { userProfile: true },
     });
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas.');
@@ -121,7 +124,7 @@ export class AuthService {
     return { success: true };
   }
 
-  private toPublicUser(user: { id: string; email: string; profile: unknown }) {
-    return { id: user.id, email: user.email, profile: user.profile };
+  private toPublicUser(user: { id: string; email: string; userProfile: unknown }) {
+    return { id: user.id, email: user.email, profile: user.userProfile };
   }
 }

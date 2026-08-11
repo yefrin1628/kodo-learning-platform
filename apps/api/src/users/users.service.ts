@@ -8,7 +8,7 @@ export class UsersService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true, streak: true },
+      include: { userProfile: true, userStats: true, streak: true },
     });
     if (!user) {
       throw new NotFoundException('Usuario no encontrado.');

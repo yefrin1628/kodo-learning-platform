@@ -74,10 +74,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  profile           Profile?
+  userProfile       UserProfile?
+  userStats         UserStats?
   streak            Streak?
-  courseProgress    CourseProgress[]
+  courseProgress    UserCourseProgress[]
   lessonProgress    LessonProgress[]
+  exerciseProgress  ExerciseProgress[]
   xpTransactions    XPTransaction[]
   achievements      UserAchievement[]
   vocabularyReviews VocabularyReview[]
@@ -88,7 +90,8 @@ model User {
   @@map("users")
 }
 
-model Profile {
+/// Identidad pública: quién es el usuario (no cuánto sabe ni cuánto tiene).
+model UserProfile {
   id          String   @id @default(cuid())
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -96,16 +99,26 @@ model Profile {
   displayName String
   avatar      String?
   bio         String?
-  level       Int      @default(1)
-  xp          Int      @default(0)
-  gems        Int      @default(30)
-  hearts      Int      @default(5)
-  activeProduct String @default("code") // "code" | "lang"
-  goalMinutes Int      @default(15)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@map("profiles")
+  @@map("user_profiles")
+}
+
+/// Aprendizaje + economía: todo lo que cambia mientras el usuario aprende.
+model UserStats {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level         Int      @default(1)
+  xp            Int      @default(0)
+  gems          Int      @default(30)
+  hearts        Int      @default(5)
+  activeProduct String   @default("code") // "code" | "lang"
+  dailyGoalMinutes Int   @default(15)
+  updatedAt     DateTime @updatedAt
+
+  @@map("user_stats")
 }
 
 model RefreshToken {
@@ -151,17 +164,21 @@ model Course {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  modules        CourseModule[]
-  courseProgress CourseProgress[]
+  units          Unit[]
+  courseProgress UserCourseProgress[]
   vocabulary     Vocabulary[]
 
   @@map("courses")
 }
 
-model CourseModule {
+/// Course -> Unit -> Lesson -> Exercise. `key` es el id del módulo/unidad tal
+/// como existe hoy en el frontend (index.html), para poder reimportar el
+/// contenido de forma idempotente sin duplicar filas.
+model Unit {
   id        String   @id @default(cuid())
   courseId  String
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  key       String
   title     String
   emoji     String?
   order     Int
@@ -170,14 +187,16 @@ model CourseModule {
 
   lessons Lesson[]
 
+  @@unique([courseId, key])
   @@index([courseId])
-  @@map("course_modules")
+  @@map("units")
 }
 
 model Lesson {
   id             String   @id @default(cuid())
-  moduleId       String
-  module         CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  key            String   @unique // id de la lección en el frontend, p.ej. "js-1"
   title          String
   icon           String?
   order          Int
@@ -195,7 +214,7 @@ model Lesson {
   project   Project?
   progress  LessonProgress[]
 
-  @@index([moduleId])
+  @@index([unitId])
   @@map("lessons")
 }
 
@@ -217,7 +236,7 @@ model Exercise {
   type          ExerciseType
   difficulty    Difficulty   @default(NORMAL)
   order         Int
-  prompt        String
+  prompt        String? // null for types like `speak` whose primary content is a target phrase, not a question
   explanation   String?
   // Structured data specific to the exercise type (code snippets, word banks,
   // match pairs, starter/must/expect for `run`, target phrase for `speak`, etc.)
@@ -226,8 +245,9 @@ model Exercise {
   updatedAt     DateTime     @updatedAt
 
   options ExerciseOption[]
+  progress ExerciseProgress[]
 
-  @@index([lessonId])
+  @@unique([lessonId, order])
   @@map("exercises")
 }
 
@@ -239,13 +259,13 @@ model ExerciseOption {
   isCorrect  Boolean  @default(false)
   order      Int
 
-  @@index([exerciseId])
+  @@unique([exerciseId, order])
   @@map("exercise_options")
 }
 
 // ===================== Progress =====================
 
-model CourseProgress {
+model UserCourseProgress {
   id               String    @id @default(cuid())
   userId           String
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -258,7 +278,7 @@ model CourseProgress {
   completedAt      DateTime?
 
   @@unique([userId, courseId])
-  @@map("course_progress")
+  @@map("user_course_progress")
 }
 
 model LessonProgress {
@@ -277,6 +297,22 @@ model LessonProgress {
 
   @@unique([userId, lessonId])
   @@map("lesson_progress")
+}
+
+/// Intento a nivel de ejercicio individual — la granularidad que permitirá
+/// al backend validar XP/recompensas sin confiar en lo que envíe el cliente.
+model ExerciseProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId    String
+  exercise      Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  attempts      Int       @default(0)
+  correct       Boolean   @default(false)
+  lastAttemptAt DateTime  @default(now())
+
+  @@unique([userId, exerciseId])
+  @@map("exercise_progress")
 }
 
 model XPTransaction {
