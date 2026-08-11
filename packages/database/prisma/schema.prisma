@@ -1,0 +1,408 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== Enums =====================
+
+enum CourseType {
+  PROGRAMMING
+  LANGUAGE
+}
+
+enum Difficulty {
+  FACIL
+  NORMAL
+  DIFICIL
+  DESAFIO
+}
+
+enum ExerciseType {
+  CHOICE
+  TRUE_FALSE
+  FILL
+  TYPE_ANSWER
+  ORDER
+  TRANSLATE
+  PREDICT
+  BUG
+  RUN
+  LISTEN
+  MATCH
+  SPEAK
+  CONVO
+}
+
+enum XPReason {
+  EXERCISE_CORRECT
+  LESSON_COMPLETE
+  PROJECT_COMPLETE
+  MODULE_COMPLETE
+  COURSE_COMPLETE
+  DAILY_GOAL
+  DAILY_FIRST
+  REVIEW
+  PRACTICE
+  CEFR_LEVEL_UP
+  ACHIEVEMENT
+}
+
+enum PlanInterval {
+  MONTH
+  YEAR
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+// ===================== Users =====================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  emailVerifiedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile           Profile?
+  streak            Streak?
+  courseProgress    CourseProgress[]
+  lessonProgress    LessonProgress[]
+  xpTransactions    XPTransaction[]
+  achievements      UserAchievement[]
+  vocabularyReviews VocabularyReview[]
+  subscriptions     Subscription[]
+  refreshTokens     RefreshToken[]
+  passwordResets    PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username    String   @unique
+  displayName String
+  avatar      String?
+  bio         String?
+  level       Int      @default(1)
+  xp          Int      @default(0)
+  gems        Int      @default(30)
+  hearts      Int      @default(5)
+  activeProduct String @default("code") // "code" | "lang"
+  goalMinutes Int      @default(15)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ===================== Courses =====================
+
+model Course {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  description String
+  type        CourseType
+  language    String // e.g. "js", "html", "en", "fr" — matches frontend course ids
+  level       String? // e.g. "A1", "Principiante"
+  colorHex    String?
+  flagEmoji   String?
+  isPublished Boolean    @default(false)
+  order       Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  modules        CourseModule[]
+  courseProgress CourseProgress[]
+  vocabulary     Vocabulary[]
+
+  @@map("courses")
+}
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  emoji     String?
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lessons Lesson[]
+
+  @@index([courseId])
+  @@map("course_modules")
+}
+
+model Lesson {
+  id             String   @id @default(cuid())
+  moduleId       String
+  module         CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title          String
+  icon           String?
+  order          Int
+  isProject      Boolean  @default(false)
+  introHeading   String?
+  introBody      String?
+  introCode      String?
+  introCodeLang  String?
+  introAudioText String?
+  baseXP         Int      @default(20)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  exercises Exercise[]
+  project   Project?
+  progress  LessonProgress[]
+
+  @@index([moduleId])
+  @@map("lessons")
+}
+
+model Project {
+  id                String   @id @default(cuid())
+  lessonId          String   @unique
+  lesson            Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  estimatedMinutes  Int?
+  rewardXP          Int      @default(100)
+  createdAt         DateTime @default(now())
+
+  @@map("projects")
+}
+
+model Exercise {
+  id            String       @id @default(cuid())
+  lessonId      String
+  lesson        Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type          ExerciseType
+  difficulty    Difficulty   @default(NORMAL)
+  order         Int
+  prompt        String
+  explanation   String?
+  // Structured data specific to the exercise type (code snippets, word banks,
+  // match pairs, starter/must/expect for `run`, target phrase for `speak`, etc.)
+  content       Json
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  options ExerciseOption[]
+
+  @@index([lessonId])
+  @@map("exercises")
+}
+
+model ExerciseOption {
+  id         String   @id @default(cuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  label      String
+  isCorrect  Boolean  @default(false)
+  order      Int
+
+  @@index([exerciseId])
+  @@map("exercise_options")
+}
+
+// ===================== Progress =====================
+
+model CourseProgress {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId         String
+  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  percentComplete  Int       @default(0)
+  lessonsCompleted Int       @default(0)
+  startedAt        DateTime  @default(now())
+  lastActivityAt   DateTime  @default(now())
+  completedAt      DateTime?
+
+  @@unique([userId, courseId])
+  @@map("course_progress")
+}
+
+model LessonProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId      String
+  lesson        Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed     Boolean   @default(false)
+  accuracy      Int       @default(0)
+  perfect       Boolean   @default(false)
+  attemptsCount Int       @default(0)
+  xpEarned      Int       @default(0)
+  completedAt   DateTime?
+  lastAttemptAt DateTime  @default(now())
+
+  @@unique([userId, lessonId])
+  @@map("lesson_progress")
+}
+
+model XPTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    XPReason
+  lessonId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("xp_transactions")
+}
+
+model Streak {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  current        Int      @default(0)
+  best           Int      @default(0)
+  shields        Int      @default(0)
+  lastActiveDate String? // YYYY-MM-DD
+  weekXp         Int      @default(0)
+  weekKey        String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("streaks")
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "html-master"
+  name        String
+  description String
+  icon        String
+  createdAt   DateTime @default(now())
+
+  users UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime    @default(now())
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// ===================== Vocabulary / SRS =====================
+
+model Vocabulary {
+  id              String   @id @default(cuid())
+  courseId        String
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  word            String
+  translation     String
+  emoji           String?
+  exampleSentence String?
+  audioLang       String? // e.g. "en-US", "fr-FR"
+  createdAt       DateTime @default(now())
+
+  reviews VocabularyReview[]
+
+  @@unique([courseId, word])
+  @@map("vocabulary")
+}
+
+model VocabularyReview {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabularyId    String
+  vocabulary      Vocabulary @relation(fields: [vocabularyId], references: [id], onDelete: Cascade)
+  mastery         Int       @default(0) // 0-5
+  seen            Int       @default(0)
+  mistakes        Int       @default(0)
+  correctAnswers  Int       @default(0)
+  lastReviewed    DateTime?
+  nextReview      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, vocabularyId])
+  @@index([userId, nextReview])
+  @@map("vocabulary_reviews")
+}
+
+// ===================== Subscriptions =====================
+
+model Plan {
+  id         String        @id @default(cuid())
+  key        String        @unique // "FREE" | "PRO_MONTHLY" | "PRO_YEARLY"
+  name       String
+  priceCents Int           @default(0)
+  currency   String        @default("USD")
+  interval   PlanInterval?
+  isActive   Boolean       @default(true)
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan               @relation(fields: [planId], references: [id])
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?            @unique
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([userId])
+  @@map("subscriptions")
+}

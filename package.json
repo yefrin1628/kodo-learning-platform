@@ -1,0 +1,16 @@
+{
+  "name": "kodo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Kodo — Aprende código. Aprende idiomas. Construye tu futuro.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @kodo/api dev",
+    "build:api": "pnpm --filter @kodo/api build",
+    "db:generate": "pnpm --filter @kodo/database generate",
+    "db:migrate": "pnpm --filter @kodo/database migrate",
+    "db:studio": "pnpm --filter @kodo/database studio"
+  }
+}

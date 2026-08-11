@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+apps/*/.env
+packages/*/.env
+prisma/*.env
+*.log
+.DS_Store
+.turbo/
+coverage/
