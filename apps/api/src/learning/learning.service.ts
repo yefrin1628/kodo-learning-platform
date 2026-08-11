@@ -2,6 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { Prisma } from '@kodo/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnswerValidatorService } from './answer-validator.service';
+import { AchievementsService } from './achievements.service';
+import { ChallengesService } from './challenges.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { levelIndexForXp, REWARDS, SRS_INTERVAL_DAYS } from './constants';
 
@@ -15,6 +17,8 @@ export class LearningService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly validator: AnswerValidatorService,
+    private readonly achievements: AchievementsService,
+    private readonly challenges: ChallengesService,
   ) {}
 
   async answerExercise(userId: string, exerciseId: string, dto: SubmitAnswerDto) {
@@ -133,7 +137,7 @@ export class LearningService {
         : course.type === 'PROGRAMMING'
           ? REWARDS.lessonCode
           : REWARDS.lessonLang;
-      const gemsAwarded = alreadyCompleted ? 0 : REWARDS.baseGems + (perfect ? REWARDS.perfectGemsBonus : 0);
+      let gemsAwarded = alreadyCompleted ? 0 : REWARDS.baseGems + (perfect ? REWARDS.perfectGemsBonus : 0);
       let totalXp = 0;
 
       if (!alreadyCompleted) {
@@ -220,6 +224,18 @@ export class LearningService {
         }
       }
 
+      // Achievements and daily challenges are checked every time a lesson
+      // is completed (never trusting a client-reported unlock), inside the
+      // same transaction so they see the just-updated progress/XP/streak.
+      const achievementsUnlocked = await this.achievements.checkAndUnlock(tx, userId);
+      for (const a of achievementsUnlocked) totalXp += a.xp;
+
+      const challengesCompleted = await this.challenges.checkAndClaim(tx, userId);
+      for (const c of challengesCompleted) {
+        totalXp += c.xp;
+        gemsAwarded += c.gems;
+      }
+
       const finalStats = await tx.userStats.findUniqueOrThrow({ where: { userId } });
       const finalStreak = await tx.streak.findUnique({ where: { userId } });
       const finalCp = await tx.userCourseProgress.findUnique({
@@ -232,6 +248,8 @@ export class LearningService {
         rewards: { xp: totalXp, gems: gemsAwarded },
         stats: { xp: finalStats.xp, level: finalStats.level, streak: finalStreak?.current ?? 0 },
         courseProgress: { progressPct: finalCp?.percentComplete ?? 0 },
+        achievementsUnlocked,
+        challengesCompleted,
       };
     });
   }

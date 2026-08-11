@@ -103,15 +103,26 @@ export class AnswerValidatorService {
     }
   }
 
-  /** Vocabulary words this answer touches, for SRS updates (language courses only). */
+  /**
+   * Vocabulary words this answer touches, for SRS updates (language courses
+   * only). One answer teaches one word by default — `content.word` is the
+   * canonical SRS-tracked word, and other fields are only used as a
+   * fallback when it's absent, not stacked on top of it. (The original
+   * frontend pushed both `word` and `w` for `listen` exercises, which
+   * double-counted mastery per answer; the backend is now the source of
+   * truth, so this is deliberately not replicated.)
+   */
   vocabWordsFor(exercise: Exercise): string[] {
     const content = (exercise.content ?? {}) as Record<string, unknown>;
     const words: string[] = [];
-    if (typeof content.word === 'string') words.push(content.word);
-    if (exercise.type === 'LISTEN' && typeof content.w === 'string') words.push(content.w);
+    if (typeof content.word === 'string') {
+      words.push(content.word);
+    } else if (exercise.type === 'LISTEN' && typeof content.w === 'string') {
+      words.push(content.w);
+    }
     if (exercise.type === 'MATCH' && Array.isArray(content.pairs)) {
       for (const p of content.pairs as [string, string][]) words.push(p[0]);
     }
-    return words;
+    return [...new Set(words.map((w) => w.toLowerCase()))];
   }
 }

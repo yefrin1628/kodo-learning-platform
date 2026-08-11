@@ -86,6 +86,7 @@ model User {
   exerciseProgress  ExerciseProgress[]
   xpTransactions    XPTransaction[]
   achievements      UserAchievement[]
+  challengeProgress UserChallengeProgress[]
   vocabularyReviews VocabularyReview[]
   subscriptions     Subscription[]
   refreshTokens     RefreshToken[]
@@ -356,6 +357,8 @@ model Achievement {
   name        String
   description String
   icon        String
+  rewardXp    Int      @default(50)
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   users UserAchievement[]
@@ -369,10 +372,45 @@ model UserAchievement {
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   achievementId String
   achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  xpAwarded     Int         @default(0) // snapshot at unlock time, independent of later catalog changes
   unlockedAt    DateTime    @default(now())
 
   @@unique([userId, achievementId])
   @@map("user_achievements")
+}
+
+// ===================== Challenges =====================
+
+model Challenge {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  title      String
+  icon       String
+  metric     String // 'lessons_completed' | 'xp_earned' | 'exercises_answered' | 'streak_maintained'
+  goal       Int
+  rewardXp   Int      @default(0)
+  rewardGems Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  progress UserChallengeProgress[]
+
+  @@map("challenges")
+}
+
+model UserChallengeProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  date        String // YYYY-MM-DD — challenges reset daily by definition, not by a cron job
+  progress    Int       @default(0)
+  claimed     Boolean   @default(false)
+  claimedAt   DateTime?
+
+  @@unique([userId, challengeId, date])
+  @@map("user_challenge_progress")
 }
 
 // ===================== Vocabulary / SRS =====================
