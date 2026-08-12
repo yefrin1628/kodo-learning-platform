@@ -1063,6 +1063,22 @@ function checkChallenges(){if(!U)return;CHALLENGES.forEach(c=>{
   toast('⚔️ Desafío completado: <b>'+c.t+'</b> · '+c.rw);}});}
 function checkAch(){if(!U)return;ACHS.forEach(a=>{
  if(!U.ach.includes(a.id)&&a.test()){U.ach.push(a.id);saveU();pending.push({type:'ach',a:a});}});}
+// Logros reales: al completar una lección, el servidor (no este archivo) es
+// quien decide qué se desbloqueó — las 25 condiciones ya viven en
+// achievements.service.ts. Esto solo consume achievementsUnlocked de la
+// respuesta y muestra la misma celebración que checkAch() ya usaba; el
+// catálogo local (ic/name/desc) es contenido estático, se reutiliza solo
+// para mostrarlo, nunca para decidir si algo se desbloqueó.
+function applyServerAchievements(list){
+ if(!Array.isArray(list))return;
+ list.forEach(function(a){
+  if(!a||!a.key||U.ach.includes(a.key))return;
+  U.ach.push(a.key);
+  const local=ACHS.find(function(x){return x.id===a.key;});
+  pending.push({type:'ach',a:{ic:a.icon||(local&&local.ic)||'🏅',name:a.name||(local&&local.name)||a.key,desc:(local&&local.desc)||'',xp:a.xp||0}});
+ });
+ saveU();
+}
 function registerRun(){U.flags.codeRan=true;U.day.runs++;saveU();checkChallenges();checkAch();}
 function srsKey(langid,w){return langid+':'+norm(w);}
 const SRS_DAYS=[0,1,3,7,16,30];
@@ -1084,7 +1100,7 @@ function processPending(){if(!pending.length)return;const p=pending.shift();
  if(p.type==='level'){confetti(180);sWin();openModal('<img src="'+M_CELEB+'" alt=""><h2>¡SUBISTE DE NIVEL!</h2><p class="sub">Ahora eres <b style="color:#c4b5fd">Nivel '+(p.i+1)+' · '+LEVELS[p.i][0]+'</b>. ¡Kody está orgulloso de ti!</p><button class="btn btn-p w100 big" onclick="closeModal();processPending();">¡SIGAMOS!</button>');}
  else if(p.type==='course'){confetti(150);sWin();openModal('<div class="big-n">🎓</div><h2>¡Curso completado!</h2><p class="sub"><b>'+p.c.name+'</b> al 100%. Bonus: <b style="color:var(--en)">+'+REW.course+' XP</b></p><button class="btn btn-p w100 big" onclick="closeModal();processPending();">CONTINUAR</button>');}
  else if(p.type==='module'){confetti(90);sGood();openModal('<div class="big-n">'+(p.lang?'🌎':'📦')+'</div><h2>¡'+(p.lang?'Unidad':'Módulo')+' completado!</h2><p class="sub"><b>'+p.title+'</b> superado. Bonus: <b style="color:var(--en)">+'+p.xp+' XP</b></p><button class="btn btn-p w100" onclick="closeModal();processPending();">CONTINUAR</button>');}
- else if(p.type==='ach'){sWin();openModal('<img src="'+M_CELEB+'" alt=""><div class="big-n" style="font-size:56px">'+p.a.ic+'</div><h2>¡Logro desbloqueado!</h2><p class="sub"><b>'+p.a.name+'</b> · '+p.a.desc+'</p><button class="btn btn-p w100" onclick="closeModal();processPending();">¡GENIAL!</button>');}
+ else if(p.type==='ach'){sWin();openModal('<img src="'+M_CELEB+'" alt=""><div class="big-n" style="font-size:56px">'+p.a.ic+'</div><h2>¡Logro desbloqueado!</h2><p class="sub"><b>'+p.a.name+'</b> · '+p.a.desc+(p.a.xp?' · <b style="color:var(--en)">+'+p.a.xp+' XP</b>':'')+'</p><button class="btn btn-p w100" onclick="closeModal();processPending();">¡GENIAL!</button>');}
  else if(p.type==='goal'){confetti(100);sWin();openModal('<img src="'+M_CELEB+'" alt=""><h2>🎯 ¡Meta diaria cumplida!</h2><p class="sub">Completaste tus '+goalTarget()+' ejercicios de hoy. Bonus: <b style="color:var(--en)">+'+REW.goal+' XP</b></p><button class="btn btn-p w100" onclick="closeModal();processPending();">¡VAMOS!</button>');}
  else if(p.type==='cefr'){confetti(200);sWin();openModal('<img src="'+M_CELEB+'" alt=""><div class="big-n" style="font-size:52px">'+p.c.flag+'</div><h2>¡Completaste '+esc(p.c.name)+' '+p.lv+'!</h2><p class="sub">Subiste de nivel en el Marco Común Europeo. Bonus: <b style="color:var(--s)">+20 💎</b>. ¡Sigue así!</p><button class="btn btn-p w100 big" onclick="closeModal();processPending();">¡SIGUIENTE NIVEL!</button>');}}
 function logoSVG(sz){return '<svg width="'+(sz||36)+'" height="'+(sz||36)+'" viewBox="0 0 48 48"><defs><linearGradient id="gk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6C5CE7"/><stop offset="1" stop-color="#00C2FF"/></linearGradient></defs><rect x="2" y="2" width="44" height="44" rx="13" fill="url(#gk)"/><path d="M15 12v24M15 24l13-12M16 23l14 13" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="34" cy="11" r="3.4" fill="#FFC700"/></svg>';}
@@ -2434,7 +2450,7 @@ function applyLessonCompletion(res,acc){
  const c=COURSES.find(x=>x.id===LS.cid);
  if(c&&flatLessons(c).every(l=>U.done[l])&&!U.flags['course-'+LS.cid]){U.flags['course-'+LS.cid]=true;pending.push({type:'course',c:c});}
  if(cat==='lang'){const nc=cefrIndex(c);const fk='cefr-'+LS.cid+'-'+prevCefr;if(nc>prevCefr&&!U.flags[fk]){U.flags[fk]=true;U.gems+=20;pending.push({type:'cefr',lv:CEFR_LV[prevCefr],c:c});}}
- saveU();checkAch();checkChallenges();confetti(150);sWin();}
+ saveU();applyServerAchievements(res.achievementsUnlocked);checkChallenges();confetti(150);sWin();}
 function retryCompleteLesson(){LS.completeError=null;lsFinish();}
 function lsEndHTML(){
  const acc=Math.round(100*LS.ok/(LS.ok+LS.bad||1));
