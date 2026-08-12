@@ -891,6 +891,22 @@ function syncUserFromServer(serverUser){
  if(stats){U.xp=stats.xp;U.gems=stats.gems;U.hearts=stats.hearts;}
  const streak=serverUser.streak;
  if(streak){U.streak=streak.current;U.bestStreak=streak.best;}
+ // U.done se reconstruye por completo desde lessonProgress: dashboard 100%
+ // servidor significa que "lección completada" ya no puede depender de
+ // localStorage — un dispositivo/navegador nuevo debe ver exactamente el
+ // mismo progreso (desbloqueos, % por curso, "Continúa en...") que uno que
+ // ya se usó siempre, porque isUnlocked()/coursePct()/getNext() leen U.done.
+ if(Array.isArray(serverUser.lessonProgress)){
+  const done={};
+  serverUser.lessonProgress.forEach(function(lp){
+   if(lp.lesson&&lp.lesson.key)done[lp.lesson.key]={acc:lp.accuracy,perfect:lp.perfect,ts:lp.completedAt?new Date(lp.completedAt).getTime():Date.now()};
+  });
+  U.done=done;
+ }
+ // XP de hoy/semana: suma real de XPTransaction, nunca un contador que el
+ // cliente incrementa/decrementa por su cuenta.
+ if(typeof serverUser.xpToday==='number')U.day.xp=serverUser.xpToday;
+ if(typeof serverUser.xpWeek==='number'){if(U.weekKey!==weekKey())U.weekKey=weekKey();U.weekXP=serverUser.xpWeek;}
  saveU();
 }
 // ===== Cursos reales: reemplaza el CONTENIDO de COURSES (estructura: curso ->
@@ -993,11 +1009,13 @@ function loadU(){U=UserRepo.load();if(!U)return;
  if(U.v===3)migrate3to4(U);
  if(U.v!==4){U=null;}}
 function rollover(){
+ // La racha (U.streak) NUNCA se recalcula aquí: es dato exclusivo del
+ // servidor (streak.current vía syncUserFromServer). Antes este rollover
+ // podía ponerla en 0 localmente por un cálculo de días propio, lo que
+ // contradecía directamente lo que el servidor acababa de confirmar.
  if(!U)return;const t=today();
  if(U.day.date!==t){U.day={date:t,ex:0,lessons:0,xp:0,perfect:0,runs:0,goalDone:false,claimed:[]};}
  if(U.weekKey!==weekKey()){U.weekKey=weekKey();U.weekXP=0;}
- if(U.lastActive){const diff=Math.round((new Date(t)-new Date(U.lastActive))/864e5);
-  if(diff>=2){if(U.shield>0){U.shield--;toast('🛡️ Tu protector salvó la racha.');}else{U.streak=0;}}}
  saveU();}
 function lvlIndex(){let i=0;for(let k=0;k<LEVELS.length;k++){if(U.xp>=LEVELS[k][1])i=k;}return i;}
 function flatLessons(c){return c.modules.flatMap(m=>m.lessons);}
@@ -1795,7 +1813,8 @@ async function doRegister(){
  try{
   const res=await registerWithRetry(m,p,n);
   ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);
-  syncUserFromServer({id:res.user.id,email:res.user.email,profile:res.user.profile});
+  const me=await KodoAPI.me();
+  syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
   sGood();OB=null;go('onboarding');
  }catch(e){sBad();toast('❌ '+(e.message||'No se pudo crear la cuenta.'));}
@@ -1809,7 +1828,8 @@ async function doLogin(){
  try{
   const res=await KodoAPI.login(m,p);
   ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);
-  syncUserFromServer({id:res.user.id,email:res.user.email,profile:res.user.profile});
+  const me=await KodoAPI.me();
+  syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
   sGood();go(U.onb?'home':'onboarding');
  }catch(e){sBad();toast('❌ '+(e.status===401?'Correo o contraseña incorrectos.':(e.message||'No se pudo iniciar sesión.')));}
@@ -2429,7 +2449,18 @@ async function bootAuth(){
   rollover();
   view=U.onb?'home':'onboarding';
  }catch(e){
-  ACCESS_TOKEN=null;setRefreshToken(null);U=null;view='landing';
+  if(e&&e.status){
+   // Respuesta real del servidor (401: refresh token inválido/expirado) — sesión terminada de verdad.
+   ACCESS_TOKEN=null;setRefreshToken(null);U=null;view='landing';
+  }else{
+   // Fallo de red/servidor no disponible, no una sesión inválida: no se
+   // cierra sesión ni se pisa el progreso ya guardado con datos vacíos —
+   // se conserva lo último conocido mientras se puede reintentar.
+   console.error('No se pudo recuperar la sesión (fallo de red), se conserva el estado local.',e);
+   const cached=UserRepo.load();
+   if(cached){U=cached;rollover();view=U.onb?'home':'onboarding';}
+   else{view='landing';}
+  }
  }
  render();
 }
