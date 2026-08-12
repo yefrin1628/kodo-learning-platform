@@ -21,6 +21,12 @@ export class UsersService {
           where: { completed: true },
           include: { lesson: { select: { key: true } } },
         },
+        // Profile stats: only the achievement `key` travels over the wire —
+        // the frontend already has name/icon/description for all 25 in its
+        // local ACHS catalog (seeded from the same content), so this is
+        // purely "which of those the server confirms unlocked", not a second
+        // copy of the catalog.
+        achievements: { include: { achievement: { select: { key: true } } } },
       },
     });
     if (!user) {
@@ -36,7 +42,7 @@ export class UsersService {
     const startOfWeek = new Date(startOfToday);
     startOfWeek.setDate(startOfToday.getDate() - ((now.getDay() + 6) % 7));
 
-    const [xpToday, xpWeek] = await Promise.all([
+    const [xpToday, xpWeek, exerciseStats] = await Promise.all([
       this.prisma.xPTransaction.aggregate({
         where: { userId, createdAt: { gte: startOfToday } },
         _sum: { amount: true },
@@ -45,12 +51,22 @@ export class UsersService {
         where: { userId, createdAt: { gte: startOfWeek } },
         _sum: { amount: true },
       }),
+      this.prisma.exerciseProgress.aggregate({
+        where: { userId },
+        _count: true,
+        _sum: { attempts: true, correctAnswers: true },
+      }),
     ]);
+
+    const attempts = exerciseStats._sum.attempts ?? 0;
+    const correctAnswers = exerciseStats._sum.correctAnswers ?? 0;
 
     return {
       ...safeUser,
       xpToday: xpToday._sum.amount ?? 0,
       xpWeek: xpWeek._sum.amount ?? 0,
+      exercisesAnswered: exerciseStats._count,
+      accuracy: attempts > 0 ? Math.round((100 * correctAnswers) / attempts) : 0,
     };
   }
 }
