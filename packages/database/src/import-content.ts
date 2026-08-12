@@ -137,8 +137,14 @@ const DIFF_MAP: Record<string, string> = {
 };
 const HAS_OPTIONS = new Set(['choice', 'predict', 'fill', 'bug', 'listen', 'convo', 'tf']);
 
+// `d` (difficulty tag) is intentionally kept in content, not just derived into
+// the `difficulty` column: some exercises in the frontend set d:'normal'
+// explicitly (which renders a "Normal" badge) while most omit `d` entirely
+// (no badge). The `difficulty` enum column can't distinguish those two cases
+// since both map to NORMAL — content.d is what the frontend adapter reads to
+// reproduce the exact original badge behavior.
 function exerciseContent(ex: FrontendExercise): Record<string, unknown> {
-  const { t: _t, d: _d, q: _q, e: _e, o: _o, a: _a, ...rest } = ex;
+  const { t: _t, q: _q, e: _e, o: _o, a: _a, ...rest } = ex;
   return rest;
 }
 

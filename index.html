@@ -925,6 +925,42 @@ async function hydrateCoursesFromApi(){
   console.error('No se pudo cargar el catálogo real de cursos, se mantiene el local.',e);
  }
 }
+// ===== Lecciones reales: al abrir una lección, intenta traer su contenido
+// real (intro + ejercicios) desde la API y sobrescribe LESSONS[key] con la
+// misma forma que ya usa toda la UI existente. Si la API falla o la lección
+// aún no está en Postgres, se mantiene el contenido local tal cual estaba. =====
+const API_EX_TYPE_TO_LOCAL={CHOICE:'choice',TRUE_FALSE:'tf',FILL:'fill',TYPE_ANSWER:'type',ORDER:'order',TRANSLATE:'tr',PREDICT:'predict',BUG:'bug',RUN:'run',LISTEN:'listen',MATCH:'match',SPEAK:'speak',CONVO:'convo'};
+const EX_OPTION_TYPES=new Set(['choice','predict','fill','bug','listen','convo','tf']);
+function adaptApiExercise(e){
+ // content ya incluye "d" (difficulty tag) tal cual estaba en el frontend
+ // original — ver el comentario de exerciseContent() en import-content.ts.
+ const t=API_EX_TYPE_TO_LOCAL[e.type];
+ const item=Object.assign({t:t},e.content||{});
+ if(e.prompt!=null)item.q=e.prompt;
+ if(e.explanation!=null)item.e=e.explanation;
+ if(EX_OPTION_TYPES.has(t)){
+  const opts=e.options||[];
+  if(t==='tf'){const trueOpt=opts.find(o=>o.label==='Verdadero');item.a=trueOpt?!!trueOpt.isCorrect:true;}
+  else{item.o=opts.map(o=>o.label);item.a=opts.findIndex(o=>o.isCorrect);}
+ }
+ return item;
+}
+function adaptApiLesson(api){
+ return{title:api.title,icon:api.icon||undefined,lang:api.introCodeLang||undefined,proj:api.isProject||undefined,
+  intro:{h:api.introHeading||undefined,p:api.introBody||undefined,code:api.introCode||undefined,say:api.introAudioText||undefined},
+  ex:(api.exercises||[]).map(adaptApiExercise)};
+}
+const lessonsHydrated={};
+async function hydrateLessonFromApi(key){
+ if(lessonsHydrated[key])return;
+ try{
+  const api=await KodoAPI.request('GET','/lessons/'+encodeURIComponent(key));
+  LESSONS[key]=adaptApiLesson(api);
+  lessonsHydrated[key]=true;
+ }catch(e){
+  console.error('No se pudo cargar la lección "'+key+'" desde la API, se mantiene el contenido local.',e);
+ }
+}
 function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,
  xp:0,gems:30,hearts:5,pro:false,proPlan:'free',shield:0,
  streak:0,bestStreak:0,lastActive:'',week:[],weekXP:0,weekKey:weekKey(),
@@ -2009,9 +2045,10 @@ function poolEx(){const arr=[];Object.entries(LESSONS).forEach(([lid,L])=>{const
  return arr;}
 function lessonMult(){return (U.pro?2:1)*(LS.boostApplied?2:1);}
 function lsGain(n){const cat=LS?LS.cat:U.product;awardXP(n,cat);if(LS)LS.totalXP+=n;}
-function openLesson(cid,lid){
+async function openLesson(cid,lid){
  if(!U){go('auth');return;}
  if(!isUnlocked(cid,lid)){toast('🔒 Completa la lección anterior.');return;}
+ await hydrateLessonFromApi(lid);
  const c=COURSES.find(x=>x.id===cid);const L=LESSONS[lid];
  const boost=!!U.flags.boostNext;if(boost)U.flags.boostNext=false;
  LS={mode:'lesson',cat:c.cat,cid:cid,lid:lid,ex:L.ex,step:-1,ok:0,bad:0,totalXP:0,answered:false,sel:null,typed:'',picks:[],bank:[],finished:false,resume:null,code:'',out:null,busy:false,boostApplied:boost,heard:'',spOk:false};
