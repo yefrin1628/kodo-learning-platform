@@ -859,7 +859,8 @@ const KodoAPI={
  refresh(refreshToken){return this.request('POST','/auth/refresh',{refreshToken},{noAuth:true});},
  logout(refreshToken){return this.request('POST','/auth/logout',{refreshToken},{noAuth:true}).catch(function(){});},
  me(){return this.request('GET','/me');},
- ranking(period){return this.request('GET','/ranking?period='+(period||'weekly'));}
+ ranking(period){return this.request('GET','/ranking?period='+(period||'weekly'));},
+ answerExercise(exerciseId,payload,mode){return this.request('POST','/learning/exercises/'+encodeURIComponent(exerciseId)+'/answer',Object.assign({},payload,{mode:mode}));}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -934,8 +935,12 @@ const EX_OPTION_TYPES=new Set(['choice','predict','fill','bug','listen','convo',
 function adaptApiExercise(e){
  // content ya incluye "d" (difficulty tag) tal cual estaba en el frontend
  // original — ver el comentario de exerciseContent() en import-content.ts.
+ // "id" es el cuid real del ejercicio en Postgres: su presencia es lo que
+ // le indica a lsCheck()/matchDone()/resolveLang() que pueden validar la
+ // respuesta contra POST /learning/exercises/:id/answer en vez de evaluarla
+ // solo en el cliente.
  const t=API_EX_TYPE_TO_LOCAL[e.type];
- const item=Object.assign({t:t},e.content||{});
+ const item=Object.assign({t:t,id:e.id},e.content||{});
  if(e.prompt!=null)item.q=e.prompt;
  if(e.explanation!=null)item.e=e.explanation;
  if(EX_OPTION_TYPES.has(t)){
@@ -2045,6 +2050,19 @@ function poolEx(){const arr=[];Object.entries(LESSONS).forEach(([lid,L])=>{const
  return arr;}
 function lessonMult(){return (U.pro?2:1)*(LS.boostApplied?2:1);}
 function lsGain(n){const cat=LS?LS.cat:U.product;awardXP(n,cat);if(LS)LS.totalXP+=n;}
+// ===== Progreso real de ejercicios: cuando el ejercicio actual viene de la
+// API (ex.id presente, ver adaptApiExercise), la respuesta se valida en el
+// servidor vía POST /learning/exercises/:id/answer — el servidor decide
+// correcto/incorrecto, XP y corazones. Si la llamada falla (red caída,
+// ejercicio aún local) se usa el resultado ya calculado localmente como
+// respaldo, exactamente igual que antes de este bloque.
+function apiMode(){return LS.mode==='lesson'?'lesson':'practice';}
+function answerPayloadFor(ex){
+ if(['choice','predict','tf','fill','bug','listen','convo'].includes(ex.t))return{selectedIndex:LS.sel};
+ if(ex.t==='type')return{text:LS.typed};
+ if(ex.t==='tr'||ex.t==='order')return{text:LS.picks.map(j=>LS.bank[j]).join(' ')};
+ return{};
+}
 async function openLesson(cid,lid){
  if(!U){go('auth');return;}
  if(!isUnlocked(cid,lid)){toast('🔒 Completa la lección anterior.');return;}
@@ -2151,7 +2169,13 @@ function mTap(side,i){
    if(Object.keys(LS.mmatched).length===LS.ex[LS.step].pairs.length)matchDone();}
   else{sBad();const l=LS.mSelL,rr=LS.mSelR;const le=document.querySelector('#mL .mitem[data-i="'+l+'"]'),re=document.querySelector('#mR .mitem[data-i="'+rr+'"]');if(le)le.classList.add('bad');if(re)re.classList.add('bad');LS.mSelL=null;LS.mSelR=null;
    setTimeout(function(){const a=document.querySelector('#mL .mitem[data-i="'+l+'"]'),b=document.querySelector('#mR .mitem[data-i="'+rr+'"]');if(a)a.classList.remove('bad','sel');if(b)b.classList.remove('bad','sel');},450);}}}
-function matchDone(){const ex=LS.ex[LS.step];markWords(ex,true);LS.answered=true;LS.ok++;countExercise();lsGain(REW.langEx*lessonMult());
+async function matchDone(){const ex=LS.ex[LS.step];markWords(ex,true);
+ let xp=REW.langEx*lessonMult();
+ if(ex.id){
+  try{const res=await KodoAPI.answerExercise(ex.id,{pairs:ex.pairs.map(function(p){return{left:p[0],right:p[1]};})},apiMode());xp=res.xpAwarded;}
+  catch(e){console.error('No se pudo registrar el match en servidor, se usa XP local.',e);}
+ }
+ LS.answered=true;LS.ok++;countExercise();lsGain(xp);
  $('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(true,'',ex.e||'');afterAnswer(true);}
 function micStart(){const ex=LS.ex[LS.step];if(LS.answered)return;
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -2188,8 +2212,8 @@ function edRun(){const ex=LS.ex[LS.step];
  execCode(LS.code,function(res){LS.busy=false;LS.out=res;
   if(!res.timeout&&!res.error)registerRun();
   if(LS.step>=0&&!LS.finished&&LS.ex[LS.step].t==='run')renderLS();});}
-function lsCheck(){
- if(!LS||LS.answered||LS.finished)return;
+async function lsCheck(){
+ if(!LS||LS.answered||LS.finished||LS.busy)return;
  const ex=LS.ex[LS.step];
  if(ex.t==='run'){
   if(!(LS.code||'').trim()){toast('Escribe algo primero.');return;}
@@ -2198,10 +2222,19 @@ function lsCheck(){
    lsWinRun(ex);return;}
   LS.busy=true;const cb0=$('#lscheck');if(cb0)cb0.disabled=true;
   const o=$('#edout');if(o)o.innerHTML='<span style="color:#5b6784">› Ejecutando…</span>';
-  execCode(LS.code,function(res){LS.busy=false;LS.out=res;
+  execCode(LS.code,async function(res){LS.out=res;
    if(!res.timeout&&!res.error)registerRun();
-   if(res.timeout){lsFail('Tiempo agotado: revisa posibles bucles infinitos.',ex.e||'');return;}
-   if(res.error){lsFail('Error en tu código: '+res.error,ex.e||'');return;}
+   if(res.timeout){LS.busy=false;lsFail('Tiempo agotado: revisa posibles bucles infinitos.',ex.e||'');return;}
+   if(res.error){LS.busy=false;lsFail('Error en tu código: '+res.error,ex.e||'');return;}
+   if(ex.id){
+    try{
+     const sres=await KodoAPI.answerExercise(ex.id,{code:LS.code},apiMode());
+     LS.busy=false;
+     if(sres.correct)lsWinRun(ex,sres.xpAwarded);else lsFail(sres.message||'Revisa tu código.',ex.e||'',sres.hearts);
+     return;
+    }catch(e){console.error('No se pudo validar el código en servidor, se evalúa localmente.',e);}
+   }
+   LS.busy=false;
    const code=LS.code;
    for(const m of ex.must||[]){if(code.indexOf(m)===-1){lsFail('Tu código debe incluir: '+m,ex.e||'');return;}}
    const lines=res.out.map(l=>l.trim());
@@ -2209,7 +2242,7 @@ function lsCheck(){
     if(!lines.some(l=>l.toLowerCase()===want)){lsFail('La consola debe imprimir exactamente: "'+expK+'"',ex.e||'');return;}}
    lsWinRun(ex);});
   return;}
- if(ex.t==='speak'){markWords(ex,true);resolveLang(true,ex.target,ex.e||'',ex);return;}
+ if(ex.t==='speak'){markWords(ex,true);await resolveLang(true,ex.target,ex.e||'',ex);return;}
  let ok=false,ans='';
  if(ex.t==='choice'||ex.t==='predict'||ex.t==='convo'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
  else if(ex.t==='tf'){ok=(LS.sel===0)===ex.a;ans=ex.a?'Verdadero':'Falso';}
@@ -2219,29 +2252,50 @@ function lsCheck(){
  else if(ex.t==='type'){const v=norm(LS.typed);ok=ex.acc.some(a=>norm(a)===v);ans=ex.acc[0];}
  else if(ex.t==='tr'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ok=built===ex.ans;ans=ex.ans;}
  else if(ex.t==='order'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ans=(ex.w||[]).join(' ');ok=built===ans;}
+ let xpAwarded=null,heartsFromServer=null,expl=ex.e||'';
+ if(ex.id){
+  LS.busy=true;
+  try{
+   const res=await KodoAPI.answerExercise(ex.id,answerPayloadFor(ex),apiMode());
+   ok=res.correct;xpAwarded=res.xpAwarded;heartsFromServer=res.hearts;if(res.message)expl=res.message;
+  }catch(e){console.error('No se pudo validar en servidor, se evalúa localmente.',e);}
+  LS.busy=false;
+ }
  if(['choice','predict','tf','fill','bug','listen','convo'].includes(ex.t))markOpts(ex,ok);
  markWords(ex,ok);
- resolve(ok,ans,ex.e||'');}
+ resolve(ok,ans,expl,xpAwarded,heartsFromServer);}
 function markOpts(ex,ok){
  document.querySelectorAll('.lopt').forEach((el,i)=>{
   const isAns=(ex.t==='tf')?(i===0)===ex.a:i===ex.a;
   if(isAns&&!ok)el.classList.add('good');
   if(i===LS.sel)el.classList.add(ok?'good':'bad');});}
-function lsWinRun(ex){LS.answered=true;LS.ok++;sGood();lsGain(REW.codeEx*lessonMult());countExercise();
+function lsWinRun(ex,xpAwarded){LS.answered=true;LS.ok++;sGood();lsGain(xpAwarded!=null?xpAwarded:REW.codeEx*lessonMult());countExercise();
  $('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(true,'¡Código correcto!',ex.e||'');afterAnswer(true);}
-function lsFail(msg,expl){LS.answered=true;LS.bad++;sBad();
- if(LS.mode==='lesson'&&!U.pro){U.hearts=Math.max(0,U.hearts-1);saveU();}
+function lsFail(msg,expl,heartsFromServer){LS.answered=true;LS.bad++;sBad();
+ if(LS.mode==='lesson'&&!U.pro){
+  if(heartsFromServer!=null){U.hearts=heartsFromServer;saveU();}
+  else{U.hearts=Math.max(0,U.hearts-1);saveU();}
+ }
  if(LS.ex[LS.step].t==='run'&&LS.ex[LS.step].lang!=='html')renderLS();
  $('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(false,msg,expl);afterAnswer(false);}
-function resolveLang(ok,ans,expl,ex){LS.answered=true;
- if(ok){LS.ok++;sGood();lsGain(REW.langEx*lessonMult());}
+async function resolveLang(ok,ans,expl,ex){LS.answered=true;
+ let xp=REW.langEx*lessonMult();
+ if(ok&&ex&&ex.id){
+  try{const res=await KodoAPI.answerExercise(ex.id,{},apiMode());xp=res.xpAwarded;}
+  catch(e){console.error('No se pudo registrar la respuesta en servidor, se usa XP local.',e);}
+ }
+ if(ok){LS.ok++;sGood();lsGain(xp);}
  else{LS.bad++;sBad();if(LS.mode==='lesson'&&!U.pro){U.hearts=Math.max(0,U.hearts-1);saveU();}}
  countExercise();$('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(ok,ans,expl);afterAnswer(ok);}
-function resolve(ok,ans,expl){
+function resolve(ok,ans,expl,xpAwarded,heartsFromServer){
  LS.answered=true;
- const per=(LS.cat==='code'?REW.codeEx:REW.langEx)*lessonMult();
- if(ok){LS.ok++;sGood();lsGain(per);}
- else{LS.bad++;sBad();if(LS.mode==='lesson'&&!U.pro){U.hearts=Math.max(0,U.hearts-1);saveU();}}
+ const per=xpAwarded!=null?xpAwarded:(LS.cat==='code'?REW.codeEx:REW.langEx)*lessonMult();
+ if(ok){LS.ok++;sGood();if(per>0)lsGain(per);}
+ else{LS.bad++;sBad();}
+ if(LS.mode==='lesson'&&!U.pro){
+  if(heartsFromServer!=null){U.hearts=heartsFromServer;saveU();}
+  else if(!ok){U.hearts=Math.max(0,U.hearts-1);saveU();}
+ }
  countExercise();
  $('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(ok,ans,expl);
  afterAnswer(ok);}
