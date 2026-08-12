@@ -860,7 +860,8 @@ const KodoAPI={
  logout(refreshToken){return this.request('POST','/auth/logout',{refreshToken},{noAuth:true}).catch(function(){});},
  me(){return this.request('GET','/me');},
  ranking(period){return this.request('GET','/ranking?period='+(period||'weekly'));},
- answerExercise(exerciseId,payload,mode){return this.request('POST','/learning/exercises/'+encodeURIComponent(exerciseId)+'/answer',Object.assign({},payload,{mode:mode}));}
+ answerExercise(exerciseId,payload,mode){return this.request('POST','/learning/exercises/'+encodeURIComponent(exerciseId)+'/answer',Object.assign({},payload,{mode:mode}));},
+ completeLesson(key){return this.request('POST','/learning/lessons/'+encodeURIComponent(key)+'/complete');}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -2316,39 +2317,80 @@ function lsNext(){
  if(LS.mode==='lesson'&&!U.pro&&U.hearts<=0){openHearts();return;}
  LS.step++;LS.answered=false;LS.sel=null;LS.typed='';LS.picks=[];LS.out=null;LS.code='';LS.heard='';LS.spOk=false;
  if(LS.step>=LS.ex.length)lsFinish();else{prepStep();renderLS();}}
-function lsFinish(){
- LS.finished=true;stopTimer();saveU();
+async function lsFinish(){
+ stopTimer();
  const acc=Math.round(100*LS.ok/(LS.ok+LS.bad||1));
  if(LS.mode==='lesson'){
-  const L=LESSONS[LS.lid];const cat=LS.cat;
-  const c0=COURSES.find(x=>x.id===LS.cid);const prevCefr=(cat==='lang')?cefrIndex(c0):0;
-  const bonus=(L.proj?REW.project:(cat==='code'?REW.lessonCode:REW.lessonLang))*lessonMult();
-  lsGain(bonus);
-  U.gems+=5+(LS.bad===0?2:0);
-  if(LS.bad===0){U.flags.perfect=true;U.day.perfect++;}
-  U.done[LS.lid]={acc:acc,perfect:LS.bad===0,ts:Date.now()};
-  U.day.lessons++;
-  if(cat==='code'){U.code.lessons++;if(L.proj)U.code.projects++;}
-  markActive();
-  const mod=findModule(LS.cid,LS.lid);
-  if(mod&&mod.lessons.every(l=>U.done[l])&&!U.flags['mod-'+mod.id]){U.flags['mod-'+mod.id]=true;const mb=(cat==='lang'?REW.unit:REW.module)*lessonMult();lsGain(mb);pending.push({type:'module',title:mod.title,xp:mb,lang:cat==='lang'});}
-  const c=COURSES.find(x=>x.id===LS.cid);
-  if(c&&flatLessons(c).every(l=>U.done[l])&&!U.flags['course-'+LS.cid]){U.flags['course-'+LS.cid]=true;lsGain(REW.course*lessonMult());pending.push({type:'course',c:c});}
-  if(cat==='lang'){const nc=cefrIndex(c);const fk='cefr-'+LS.cid+'-'+prevCefr;if(nc>prevCefr&&!U.flags[fk]){U.flags[fk]=true;U.gems+=20;pending.push({type:'cefr',lv:CEFR_LV[prevCefr],c:c});}}
-  saveU();checkAch();checkChallenges();confetti(150);sWin();
+  // Lección completada: la fuente de verdad es el servidor. El XP por
+  // ejercicio ya se pagó en cada respuesta (ver lsCheck/matchDone/
+  // resolveLang); aquí SOLO se pide el bonus de completar la lección
+  // (gemas, XP de módulo/curso, racha, achievements, challenges) — nunca
+  // se vuelve a calcular XP de ejercicios en el cliente. Si la llamada
+  // falla, no se inventa una recompensa local: se muestra un error con
+  // reintento (ver lsEndHTML/retryCompleteLesson).
+  if(LS.completing)return;
+  LS.completing=true;
+  const lid=LS.lid;
+  try{
+   const res=await KodoAPI.completeLesson(lid);
+   if(!LS||LS.lid!==lid)return; // el usuario salió antes de que llegara la respuesta; U se resincroniza en el próximo login
+   LS.completing=false;LS.finished=true;LS.completeError=null;
+   applyLessonCompletion(res,acc);
+  }catch(e){
+   console.error('No se pudo completar la lección en el servidor.',e);
+   if(!LS||LS.lid!==lid)return;
+   LS.completing=false;LS.finished=true;
+   LS.completeError=e.message||'No se pudo guardar tu progreso. Revisa tu conexión e inténtalo de nuevo.';
+   saveU();renderLS();return;
+  }
  }else if(LS.mode==='review'){
+  LS.finished=true;
   awardXP(REW.review,'lang');LS.totalXP+=REW.review;U.gems+=3;markActive();saveU();checkAch();checkChallenges();confetti(120);sWin();
  }else{
+  LS.finished=true;
   gainXP(REW.practice);LS.totalXP+=REW.practice;U.hearts=Math.min(5,U.hearts+1);U.gems+=2;saveU();sGood();}
  renderLS();}
+function applyLessonCompletion(res,acc){
+ LS.totalXP+=res.rewards.xp;
+ LS.gemsEarned=res.rewards.gems;
+ const cat=LS.cat,L=LESSONS[LS.lid];
+ const c0=COURSES.find(x=>x.id===LS.cid);const prevCefr=(cat==='lang')?cefrIndex(c0):0;
+ const prevLvl=lvlIndex();
+ U.xp=res.stats.xp;
+ const newLvl=lvlIndex();if(newLvl>prevLvl)pending.push({type:'level',i:newLvl});
+ // day.xp/weekXP son contadores locales de solo lectura (challenge "gana
+ // 100 XP hoy" y el ranking semanal local) — se propagan con el mismo
+ // monto que ya otorgó el servidor arriba, no se otorga nada nuevo.
+ if(U.weekKey!==weekKey()){U.weekKey=weekKey();U.weekXP=0;}
+ U.day.xp+=res.rewards.xp;U.weekXP+=res.rewards.xp;
+ U.gems+=res.rewards.gems;
+ U.streak=res.stats.streak;U.bestStreak=Math.max(U.bestStreak,U.streak);
+ if(LS.bad===0){U.flags.perfect=true;U.day.perfect++;}
+ U.done[LS.lid]={acc:acc,perfect:LS.bad===0,ts:Date.now()};
+ U.day.lessons++;
+ if(cat==='code'){U.code.lessons++;if(L&&L.proj)U.code.projects++;}
+ const t=today();if(U.lastActive!==t){U.lastActive=t;if(!U.week.includes(t))U.week.push(t);U.week=U.week.slice(-14);}
+ // Los popups de módulo/curso/CEFR son puramente cosméticos (celebración):
+ // la recompensa ya llegó dentro de res.rewards.xp/gems arriba. El monto
+ // que muestran es solo la etiqueta — usa las mismas constantes REW que
+ // espeja el servidor, no vuelve a otorgarlas.
+ const mod=findModule(LS.cid,LS.lid);
+ if(mod&&mod.lessons.every(l=>U.done[l])&&!U.flags['mod-'+mod.id]){U.flags['mod-'+mod.id]=true;pending.push({type:'module',title:mod.title,xp:(cat==='lang'?REW.unit:REW.module),lang:cat==='lang'});}
+ const c=COURSES.find(x=>x.id===LS.cid);
+ if(c&&flatLessons(c).every(l=>U.done[l])&&!U.flags['course-'+LS.cid]){U.flags['course-'+LS.cid]=true;pending.push({type:'course',c:c});}
+ if(cat==='lang'){const nc=cefrIndex(c);const fk='cefr-'+LS.cid+'-'+prevCefr;if(nc>prevCefr&&!U.flags[fk]){U.flags[fk]=true;U.gems+=20;pending.push({type:'cefr',lv:CEFR_LV[prevCefr],c:c});}}
+ saveU();checkAch();checkChallenges();confetti(150);sWin();}
+function retryCompleteLesson(){LS.completeError=null;lsFinish();}
 function lsEndHTML(){
  const acc=Math.round(100*LS.ok/(LS.ok+LS.bad||1));
+ if(LS.completeError){
+  return '<div class="ls-body"><div class="ls-end"><img src="'+M_SAD+'" alt=""><h1>No se pudo guardar tu progreso</h1><p style="color:var(--t2);font-weight:700">'+esc(LS.completeError)+'</p><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px"><button class="btn btn-p big" onclick="retryCompleteLesson()">REINTENTAR</button><button class="btn btn-ghost big" onclick="lsClose()">SALIR</button></div></div></div>';}
  if(LS.mode==='practice'){
   return '<div class="ls-body"><div class="ls-end"><img src="'+M_CELEB+'" alt=""><h1>¡Práctica completa!</h1><div class="end-cards"><div class="ec" style="--c:var(--en)"><span class="t">XP</span><span class="v">+'+LS.totalXP+'</span></div><div class="ec" style="--c:var(--ok)"><span class="t">Precisión</span><span class="v">'+acc+'%</span></div><div class="ec" style="--c:var(--err)"><span class="t">Vidas</span><span class="v">+1 ❤️</span></div></div><button class="btn btn-p big" onclick="lsNext()">CONTINUAR</button></div></div>';}
  if(LS.mode==='review'){
   return '<div class="ls-body"><div class="ls-end"><img src="'+M_CELEB+'" alt=""><h1>🔁 ¡Repaso completo!</h1><p style="color:var(--t2);font-weight:700">Reforzaste '+(LS.ok+LS.bad)+' palabras. La memoria se construye repitiendo.</p><div class="end-cards"><div class="ec" style="--c:var(--en)"><span class="t">XP</span><span class="v">+'+LS.totalXP+'</span></div><div class="ec" style="--c:var(--ok)"><span class="t">Precisión</span><span class="v">'+acc+'%</span></div></div><button class="btn btn-p big" onclick="lsNext()">CONTINUAR</button></div></div>';}
  const nxt=nextAfter(LS.cid,LS.lid);const L=LESSONS[LS.lid];
- return '<div class="ls-body"><div class="ls-end"><img src="'+M_CELEB+'" alt=""><h1>'+(L&&L.proj?'¡PROYECTO TERMINADO!':(LS.bad===0?'¡LECCIÓN PERFECTA!':'¡LECCIÓN COMPLETADA!'))+'</h1><div class="end-cards"><div class="ec" style="--c:var(--en)"><span class="t">XP ganados</span><span class="v">+'+LS.totalXP+'</span></div><div class="ec" style="--c:var(--ok)"><span class="t">Precisión</span><span class="v">'+acc+'%</span></div><div class="ec" style="--c:var(--s)"><span class="t">Gemas</span><span class="v">+'+(5+(LS.bad===0?2:0))+' 💎</span></div></div><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">'+(nxt?'<button class="btn btn-p big" onclick="goNextLesson()">SIGUIENTE LECCIÓN →</button>':'')+'<button class="btn '+(nxt?'btn-ghost':'btn-p')+' big" onclick="lsNext()">VOLVER AL INICIO</button></div></div></div>';}
+ return '<div class="ls-body"><div class="ls-end"><img src="'+M_CELEB+'" alt=""><h1>'+(L&&L.proj?'¡PROYECTO TERMINADO!':(LS.bad===0?'¡LECCIÓN PERFECTA!':'¡LECCIÓN COMPLETADA!'))+'</h1><div class="end-cards"><div class="ec" style="--c:var(--en)"><span class="t">XP ganados</span><span class="v">+'+LS.totalXP+'</span></div><div class="ec" style="--c:var(--ok)"><span class="t">Precisión</span><span class="v">'+acc+'%</span></div><div class="ec" style="--c:var(--s)"><span class="t">Gemas</span><span class="v">+'+(LS.gemsEarned!=null?LS.gemsEarned:(5+(LS.bad===0?2:0)))+' 💎</span></div></div><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">'+(nxt?'<button class="btn btn-p big" onclick="goNextLesson()">SIGUIENTE LECCIÓN →</button>':'')+'<button class="btn '+(nxt?'btn-ghost':'btn-p')+' big" onclick="lsNext()">VOLVER AL INICIO</button></div></div></div>';}
 function goNextLesson(){const cid=LS.cid,nxt=nextAfter(cid,LS.lid);LS=null;$('#lesson-root').hidden=true;processPending();if(nxt)openLesson(cid,nxt);else render();}
 function lsExit(){
  if(LS.finished){lsNext();return;}
