@@ -18,8 +18,8 @@ Base URL (dev): `http://localhost:4000`. Todos los endpoints marcados 🔒 requi
 
 | Endpoint | Consume en frontend | Notas |
 |---|---|---|
-| `GET /courses` | *(pendiente: paso "Cursos reales")* | Lista los 7 cursos publicados con conteo de unidades/lecciones. |
-| `GET /courses/:slug` | *(pendiente)* | Curso + unidades + lecciones (sin ejercicios). |
+| `GET /courses` | `hydrateCoursesFromApi()` (tras register/login/bootAuth) | Lista los 7 cursos publicados con conteo de unidades/lecciones. |
+| `GET /courses/:slug` | `hydrateCoursesFromApi()` | Curso + unidades + lecciones (sin ejercicios). Se llama una vez por curso tras `GET /courses`. `adaptApiCourse()` convierte la respuesta a la forma legacy de `COURSES` (mismos ids/keys de siempre). |
 | `GET /courses/:slug/lessons` | *(pendiente)* | Lista plana de lecciones de un curso, con su unidad. |
 | `GET /lessons/:key` | *(pendiente: paso "Lecciones reales")* | Lección completa: intro + ejercicios + opciones. `key` es el mismo id que ya usa el frontend (`js-1`, `html-p1`, etc.). |
 
@@ -43,5 +43,6 @@ Base URL (dev): `http://localhost:4000`. Todos los endpoints marcados 🔒 requi
 
 ## Estado de la migración
 
-- ✅ Auth conectado (este bloque).
-- ⏳ Dashboard, cursos, lecciones, ejercicios, XP/rewards, logros, challenges, ranking, SRS: siguen leyendo de `localStorage` hasta que se conecten uno por uno.
+- ✅ Auth conectado.
+- ✅ Catálogo de cursos conectado (este bloque): `COURSES` (curso→unidad→claves de lección) viene de Postgres. `LESSONS[clave]` (intro + ejercicios) sigue local a propósito — las claves coinciden 1:1, así que el contenido se resuelve igual que antes hasta el próximo bloque.
+- ⏳ Dashboard 100%, lecciones (contenido vía API), progreso del usuario, ejercicios, XP/rewards, logros, challenges, ranking, SRS: siguen leyendo de `localStorage` hasta que se conecten uno por uno.
