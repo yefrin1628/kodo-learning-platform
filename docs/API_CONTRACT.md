@@ -27,7 +27,7 @@ Base URL (dev): `http://localhost:4000`. Todos los endpoints marcados 🔒 requi
 
 | Endpoint | Consume en frontend | Notas |
 |---|---|---|
-| `POST /learning/exercises/:exerciseId/answer` 🔒 | *(pendiente: paso "Ejercicios reales")* | Body varía por tipo: `selectedIndex` (choice/tf/fill/bug/listen/predict/convo), `text` (type/translate/order), `code` (run), `pairs` (match). El servidor valida y calcula XP — nunca se envía XP desde el cliente. |
+| `POST /learning/exercises/:exerciseId/answer` 🔒 | `lsCheck()` / `matchDone()` / `resolveLang()`, vía `answerPayloadFor()` | Body varía por tipo: `selectedIndex` (choice/tf/fill/bug/listen/predict/convo), `text` (type/translate/order), `code` (run), `pairs` (match), `{}` (speak). Solo se llama cuando el ejercicio actual tiene `id` real (viene de `GET /lessons/:key`); si no, o si falla la llamada, se evalúa localmente igual que antes. El servidor decide correcto/incorrecto, XP y corazones — el cliente nunca envía esos valores. |
 | `POST /learning/lessons/:key/complete` 🔒 | *(pendiente)* | Exige haber respondido todos los ejercicios y la lección anterior completada. Devuelve `{success,lesson,rewards,stats,courseProgress,achievementsUnlocked,challengesCompleted}`. |
 
 ## Ranking — `apps/api/src/ranking`
@@ -45,5 +45,6 @@ Base URL (dev): `http://localhost:4000`. Todos los endpoints marcados 🔒 requi
 
 - ✅ Auth conectado.
 - ✅ Catálogo de cursos conectado: `COURSES` (curso→unidad→claves de lección) viene de Postgres.
-- ✅ Carga de lecciones conectada (este bloque): al abrir una lección, `LESSONS[clave]` se sobrescribe con el contenido real (intro + ejercicios) de `GET /lessons/:key`. Responder ejercicios (`POST /learning/exercises/:exerciseId/answer`) todavía NO está conectado a propósito — sigue evaluándose en el cliente hasta el siguiente bloque.
-- ⏳ Dashboard 100%, progreso del usuario, ejercicios (responder), XP/rewards, logros, challenges, ranking, SRS: siguen leyendo/escribiendo `localStorage` hasta que se conecten uno por uno.
+- ✅ Carga de lecciones conectada: al abrir una lección, `LESSONS[clave]` se sobrescribe con el contenido real (intro + ejercicios) de `GET /lessons/:key`.
+- ✅ Progreso de ejercicios conectado (este bloque): responder cualquiera de los 13 tipos de ejercicio se valida en `POST /learning/exercises/:exerciseId/answer` — XP, corazones y SRS ahora los decide el servidor. Completar una lección (`POST /learning/lessons/:key/complete`) todavía NO está conectado a propósito: el bonus de fin de lección (gemas, XP de módulo/curso, racha) sigue siendo local, así que el XP total local va temporalmente por delante del ledger del servidor hasta el siguiente bloque. Por la misma razón, el multiplicador x2 de XP (Pro/impulso) no aplica todavía sobre respuestas validadas por el servidor.
+- ⏳ Dashboard 100%, completar lección, logros, challenges, ranking: siguen leyendo/escribiendo `localStorage` hasta que se conecten uno por uno.
