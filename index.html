@@ -891,6 +891,40 @@ function syncUserFromServer(serverUser){
  if(streak){U.streak=streak.current;U.bestStreak=streak.best;}
  saveU();
 }
+// ===== Cursos reales: reemplaza el CONTENIDO de COURSES (estructura: curso ->
+// unidad -> claves de lección, en orden) con datos de PostgreSQL vía la API.
+// LESSONS[clave] sigue siendo local a propósito: las claves son idénticas a
+// las que ya existían (se importaron 1:1), así que el contenido completo de
+// cada lección (intro + ejercicios) sigue resolviéndose exactamente igual
+// que antes. Eso es lo que toca en el próximo bloque ("Ejercicios reales"). =====
+const COURSE_TAG={html:'</>',css:'{ }',js:'JS',py:'Py'};
+const COURSE_COLOR={html:'#FF7A45',css:'#38B6FF',js:'#F7DF1E',py:'#7EB6FF'};
+const COURSE_SPEECH_LANG={en:'en-US',fr:'fr-FR',pt:'pt-BR'};
+const COURSE_DUR={html:'6 h',css:'7 h',js:'8 h',py:'4 h',en:'7 h',fr:'9 h',pt:'10 h'};
+function adaptApiCourse(api){
+ const cat=api.type==='PROGRAMMING'?'code':'lang';
+ const c={id:api.slug,cat:cat,name:api.title,desc:api.description,diff:api.level,dur:COURSE_DUR[api.slug]||'—',
+  modules:(api.units||[]).slice().sort((a,b)=>a.order-b.order).map(u=>({
+   id:u.key,title:u.title,emoji:u.emoji||undefined,
+   lessons:(u.lessons||[]).slice().sort((a,b)=>a.order-b.order).map(l=>l.key)
+  }))};
+ if(cat==='code'){c.tag=COURSE_TAG[api.slug]||api.slug.toUpperCase();c.color=api.colorHex||COURSE_COLOR[api.slug];}
+ else{c.flag=api.flagEmoji;c.lang=COURSE_SPEECH_LANG[api.slug];}
+ return c;
+}
+let coursesHydrated=false;
+async function hydrateCoursesFromApi(){
+ try{
+  const list=await KodoAPI.request('GET','/courses');
+  const full=await Promise.all(list.map(c=>KodoAPI.request('GET','/courses/'+c.slug)));
+  const rebuilt=full.sort((a,b)=>a.order-b.order).map(adaptApiCourse);
+  if(!rebuilt.length)throw new Error('La API devolvió 0 cursos.');
+  COURSES.length=0;rebuilt.forEach(c=>COURSES.push(c));
+  coursesHydrated=true;
+ }catch(e){
+  console.error('No se pudo cargar el catálogo real de cursos, se mantiene el local.',e);
+ }
+}
 function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,
  xp:0,gems:30,hearts:5,pro:false,proPlan:'free',shield:0,
  streak:0,bestStreak:0,lastActive:'',week:[],weekXP:0,weekKey:weekKey(),
@@ -1718,8 +1752,9 @@ async function doRegister(){
  authBusy(true);
  try{
   const res=await registerWithRetry(m,p,n);
+  ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);
   syncUserFromServer({id:res.user.id,email:res.user.email,profile:res.user.profile});
-  ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);saveU();
+  if(!coursesHydrated)await hydrateCoursesFromApi();
   sGood();OB=null;go('onboarding');
  }catch(e){sBad();toast('❌ '+(e.message||'No se pudo crear la cuenta.'));}
  finally{authBusy(false);}
@@ -1731,8 +1766,9 @@ async function doLogin(){
  authBusy(true);
  try{
   const res=await KodoAPI.login(m,p);
+  ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);
   syncUserFromServer({id:res.user.id,email:res.user.email,profile:res.user.profile});
-  ACCESS_TOKEN=res.accessToken;setRefreshToken(res.refreshToken);saveU();
+  if(!coursesHydrated)await hydrateCoursesFromApi();
   sGood();go(U.onb?'home':'onboarding');
  }catch(e){sBad();toast('❌ '+(e.status===401?'Correo o contraseña incorrectos.':(e.message||'No se pudo iniciar sesión.')));}
  finally{authBusy(false);}
@@ -2256,6 +2292,7 @@ async function bootAuth(){
   ACCESS_TOKEN=tokens.accessToken;setRefreshToken(tokens.refreshToken);
   const me=await KodoAPI.me();
   syncUserFromServer(me);
+  if(!coursesHydrated)await hydrateCoursesFromApi();
   rollover();
   view=U.onb?'home':'onboarding';
  }catch(e){
