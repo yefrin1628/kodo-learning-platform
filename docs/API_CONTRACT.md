@@ -28,7 +28,7 @@ Base URL (dev): `http://localhost:4000`. Todos los endpoints marcados 🔒 requi
 | Endpoint | Consume en frontend | Notas |
 |---|---|---|
 | `POST /learning/exercises/:exerciseId/answer` 🔒 | `lsCheck()` / `matchDone()` / `resolveLang()`, vía `answerPayloadFor()` | Body varía por tipo: `selectedIndex` (choice/tf/fill/bug/listen/predict/convo), `text` (type/translate/order), `code` (run), `pairs` (match), `{}` (speak). Solo se llama cuando el ejercicio actual tiene `id` real (viene de `GET /lessons/:key`); si no, o si falla la llamada, se evalúa localmente igual que antes. El servidor decide correcto/incorrecto, XP y corazones — el cliente nunca envía esos valores. |
-| `POST /learning/lessons/:key/complete` 🔒 | *(pendiente)* | Exige haber respondido todos los ejercicios y la lección anterior completada. Devuelve `{success,lesson,rewards,stats,courseProgress,achievementsUnlocked,challengesCompleted}`. |
+| `POST /learning/lessons/:key/complete` 🔒 | `lsFinish()` → `applyLessonCompletion()` | Exige haber respondido todos los ejercicios y la lección anterior completada (400/403 si no). Devuelve `{success,lesson,rewards:{xp,gems},stats:{xp,level,streak},courseProgress,achievementsUnlocked,challengesCompleted}`. `U.xp`/`U.streak` se fijan de forma absoluta desde `stats` (nunca se incrementan localmente) — así el bonus de lección jamás puede volver a pagar el XP que ya se pagó por ejercicio individual. Si falla, no se inventa recompensa local: `LS.completeError` se muestra con botón "Reintentar" (`retryCompleteLesson()`). |
 
 ## Ranking — `apps/api/src/ranking`
 
@@ -46,5 +46,6 @@ Base URL (dev): `http://localhost:4000`. Todos los endpoints marcados 🔒 requi
 - ✅ Auth conectado.
 - ✅ Catálogo de cursos conectado: `COURSES` (curso→unidad→claves de lección) viene de Postgres.
 - ✅ Carga de lecciones conectada: al abrir una lección, `LESSONS[clave]` se sobrescribe con el contenido real (intro + ejercicios) de `GET /lessons/:key`.
-- ✅ Progreso de ejercicios conectado (este bloque): responder cualquiera de los 13 tipos de ejercicio se valida en `POST /learning/exercises/:exerciseId/answer` — XP, corazones y SRS ahora los decide el servidor. Completar una lección (`POST /learning/lessons/:key/complete`) todavía NO está conectado a propósito: el bonus de fin de lección (gemas, XP de módulo/curso, racha) sigue siendo local, así que el XP total local va temporalmente por delante del ledger del servidor hasta el siguiente bloque. Por la misma razón, el multiplicador x2 de XP (Pro/impulso) no aplica todavía sobre respuestas validadas por el servidor.
-- ⏳ Dashboard 100%, completar lección, logros, challenges, ranking: siguen leyendo/escribiendo `localStorage` hasta que se conecten uno por uno.
+- ✅ Progreso de ejercicios conectado: responder cualquiera de los 13 tipos de ejercicio se valida en `POST /learning/exercises/:exerciseId/answer` — XP, corazones y SRS los decide el servidor. El multiplicador x2 de XP (Pro/impulso) no aplica todavía sobre respuestas validadas por el servidor (suscripciones no está conectado).
+- ✅ Completar lección conectada (este bloque): `POST /learning/lessons/:key/complete` paga el bonus de fin de lección, gemas, racha, XP de módulo/curso y logros/challenges — todo server-side. El núcleo de aprendizaje (cursos → lecciones → ejercicios → completar lección) ya corre realmente contra Postgres, no solo la interfaz.
+- ⏳ Dashboard 100%, logros/challenges (mostrar en la UI lo que el servidor ya calcula), ranking, SRS/vocabulario: siguen con su propia capa local hasta que se conecten uno por uno.
