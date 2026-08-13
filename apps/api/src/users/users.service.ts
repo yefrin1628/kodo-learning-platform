@@ -41,8 +41,9 @@ export class UsersService {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfWeek = new Date(startOfToday);
     startOfWeek.setDate(startOfToday.getDate() - ((now.getDay() + 6) % 7));
+    const todayKey = now.toLocaleDateString('en-CA'); // YYYY-MM-DD, same format challenges.service.ts uses for date
 
-    const [xpToday, xpWeek, exerciseStats] = await Promise.all([
+    const [xpToday, xpWeek, exerciseStats, exercisesToday, challengesClaimedToday] = await Promise.all([
       this.prisma.xPTransaction.aggregate({
         where: { userId, createdAt: { gte: startOfToday } },
         _sum: { amount: true },
@@ -56,6 +57,20 @@ export class UsersService {
         _count: true,
         _sum: { attempts: true, correctAnswers: true },
       }),
+      // Same window/metric challenges.service.ts uses for the "exercises_answered"
+      // challenge, so the dashboard's progress bar and the server's actual
+      // claim can never disagree about what "today" counted.
+      this.prisma.exerciseProgress.count({
+        where: { userId, lastAttemptAt: { gte: startOfToday } },
+      }),
+      // Which of today's challenges are already claimed — a fresh device has
+      // no local U.day.claimed, so without this it would show a claimed
+      // challenge as still in-progress even though the server will (rightly)
+      // refuse to pay it again.
+      this.prisma.userChallengeProgress.findMany({
+        where: { userId, date: todayKey, claimed: true },
+        include: { challenge: { select: { key: true } } },
+      }),
     ]);
 
     const attempts = exerciseStats._sum.attempts ?? 0;
@@ -66,7 +81,9 @@ export class UsersService {
       xpToday: xpToday._sum.amount ?? 0,
       xpWeek: xpWeek._sum.amount ?? 0,
       exercisesAnswered: exerciseStats._count,
+      exercisesToday,
       accuracy: attempts > 0 ? Math.round((100 * correctAnswers) / attempts) : 0,
+      challengesClaimedToday: challengesClaimedToday.map((c) => c.challenge.key),
     };
   }
 }
