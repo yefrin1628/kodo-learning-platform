@@ -484,7 +484,7 @@ model UserInventory {
 
 model Subscription {
   id                   String             @id @default(cuid())
-  userId               String
+  userId               String             @unique
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   planId               String
   plan                 Plan               @relation(fields: [planId], references: [id])
@@ -497,6 +497,5 @@ model Subscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
-  @@index([userId])
   @@map("subscriptions")
 }

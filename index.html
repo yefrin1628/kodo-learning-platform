@@ -542,7 +542,14 @@ const Payments={
     if(!U){toast('Crea tu cuenta primero.');go('auth');return;}
     openModal('<div class="big-n">🔐</div><h2>Checkout de '+plan.name+'</h2><p class="sub">Plan: <b>'+PRICING.symbol+plan.price+' / '+plan.interval+'</b><br>Stripe Price ID: <span class="mono" style="font-size:12px">'+plan.stripePriceId+'</span></p><p class="sub" style="font-size:13px">En producción aquí se abre el checkout seguro de Stripe. En este MVP la activación es simulada (sin cobro real).</p><button class="btn btn-p w100" onclick="Payments.activate(\''+planId+'\')">CONTINUAR (DEMO)</button><button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cancelar</button>');
   },
-  activate(planId){U.pro=true;U.proPlan=planId;saveU();closeModal();confetti(160);sWin();toast('👑 <b>Kodo Pro</b> activado.');render();}
+  async activate(planId){
+   const planKeyMap={pro_monthly:'PRO_MONTHLY',pro_annual:'PRO_YEARLY'};
+   try{
+    await KodoAPI.subscriptionCheckout(planKeyMap[planId]);
+    const me=await KodoAPI.me();syncUserFromServer(me);
+    closeModal();confetti(160);sWin();toast('👑 <b>Kodo Pro</b> activado.');render();
+   }catch(e){sBad();toast('❌ No se pudo activar Kodo Pro. Intenta de nuevo.');}
+  }
 };
 const LEVELS=[['Novato',0],['Explorador',100],['Aprendiz',250],['Constructor',450],['Creador',700],['Pro',1000],['Experto',1400],['Maestro',1900],['Mentor',2500],['Kodo Master',3200]];
 const GOAL_MAP={5:5,10:8,15:12,30:20};
@@ -875,7 +882,9 @@ const KodoAPI={
  submitVocabReview(vocabularyId,answer){return this.request('POST','/vocabulary/'+encodeURIComponent(vocabularyId)+'/review',{answer:answer});},
  shopInventory(){return this.request('GET','/shop/inventory');},
  shopPurchase(itemKey){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/purchase');},
- shopEquip(itemKey,equipped){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/equip',{equipped:equipped});}
+ shopEquip(itemKey,equipped){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/equip',{equipped:equipped});},
+ subscriptionCheckout(planKey){return this.request('POST','/subscriptions/checkout',{planKey:planKey});},
+ subscriptionCancel(){return this.request('POST','/subscriptions/cancel');}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -903,6 +912,12 @@ function syncUserFromServer(serverUser){
  if(profile.username)U.username=profile.username;
  const stats=serverUser.userStats;
  if(stats){U.xp=stats.xp;U.gems=stats.gems;U.hearts=stats.hearts;}
+ // Pro ya no es una bandera local: el servidor decide (vidas infinitas y
+ // XP x2 los aplica learning.service.ts directamente). Solo la suscripción
+ // ACTIVE viaja en /me — CANCELED/histórico se queda fuera a propósito.
+ U.pro=!!serverUser.isPro;
+ const activeSub=Array.isArray(serverUser.subscriptions)?serverUser.subscriptions[0]:null;
+ U.proPlan=U.pro&&activeSub?(activeSub.plan.key==='PRO_YEARLY'?'pro_annual':'pro_monthly'):'free';
  const streak=serverUser.streak;
  if(streak){U.streak=streak.current;U.bestStreak=streak.best;}
  // U.done se reconstruye por completo desde lessonProgress: dashboard 100%
@@ -2307,7 +2322,13 @@ function vProPage(){
  +'<div class="card plan hot"><div class="ribbon">MÁS POPULAR</div><h3>'+M.name+'</h3><div class="pr">'+PRICING.symbol+M.price+'<small>/'+M.interval+'</small></div><ul>'+proList+'</ul>'+planBtn('pro_monthly',M)+'</div>'
  +'<div class="card plan"><h3>'+A.name+' <span class="tag y">MEJOR VALOR</span></h3><div class="pr">'+PRICING.symbol+A.price+'<small>/'+A.interval+'</small></div><ul>'+proList+'<li>💝 Equivale a '+PRICING.symbol+'3.33/mes · '+A.note+'</li></ul>'+planBtn('pro_annual',A)+'</div></div>'
  +'<p style="text-align:center;color:var(--t2);font-weight:600;font-size:13px;margin-top:22px">🔐 Pagos procesados por Stripe en producción · MVP con activación simulada, sin cobros reales</p>'+(U&&U.pro?'<p style="text-align:center;margin-top:10px"><button class="btn btn-ghost sm" onclick="closeProToFree()">Cancelar mi suscripción Pro</button></p>':'')+'</section>';}
-function closeProToFree(){U.pro=false;U.proPlan='free';saveU();toast('Tu plan vuelve a Gratis.');render();}
+async function closeProToFree(){
+ try{
+  await KodoAPI.subscriptionCancel();
+  const me=await KodoAPI.me();syncUserFromServer(me);
+  toast('Tu plan vuelve a Gratis.');render();
+ }catch(e){toast('❌ No se pudo cancelar. Intenta de nuevo.');}
+}
 
 function poolEx(){const arr=[];Object.entries(LESSONS).forEach(([lid,L])=>{const c=COURSES.find(x=>flatLessons(x).includes(lid));if(!c)return;if(c.cat!==U.product)return;L.ex.forEach(x=>{if(['choice','tf','fill','type','tr','predict','bug'].includes(x.t))arr.push(x);});});
  if(arr.length<3){Object.values(LESSONS).forEach(L=>L.ex.forEach(x=>{if(['choice','tf','fill','type','tr','predict','bug'].includes(x.t))arr.push(x);}));}
@@ -2567,10 +2588,12 @@ function markOpts(ex,ok){
 function lsWinRun(ex,xpAwarded){LS.answered=true;LS.ok++;sGood();lsGain(xpAwarded!=null?xpAwarded:REW.codeEx*lessonMult());countExercise();
  $('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(true,'¡Código correcto!',ex.e||'');afterAnswer(true);}
 function lsFail(msg,expl,heartsFromServer){LS.answered=true;LS.bad++;sBad();
- if(LS.mode==='lesson'&&!U.pro){
-  if(heartsFromServer!=null){U.hearts=heartsFromServer;saveU();}
-  else{U.hearts=Math.max(0,U.hearts-1);saveU();}
- }
+ // El servidor es la única fuente de verdad de vidas — incluida la excepción
+ // de Pro (vidas infinitas), que learning.service.ts ya decide server-side.
+ // Antes esto se saltaba por completo cuando U.pro era true, ocultando que
+ // el servidor seguía descontando vidas reales de un usuario "Pro" fake.
+ if(heartsFromServer!=null){U.hearts=heartsFromServer;saveU();}
+ else if(LS.mode==='lesson'&&!U.pro){U.hearts=Math.max(0,U.hearts-1);saveU();}
  if(LS.ex[LS.step].t==='run'&&LS.ex[LS.step].lang!=='html')renderLS();
  $('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(false,msg,expl);afterAnswer(false);}
 async function resolveLang(ok,ans,expl,ex){LS.answered=true;
@@ -2587,10 +2610,11 @@ function resolve(ok,ans,expl,xpAwarded,heartsFromServer){
  const per=xpAwarded!=null?xpAwarded:(LS.cat==='code'?REW.codeEx:REW.langEx)*lessonMult();
  if(ok){LS.ok++;sGood();if(per>0)lsGain(per);}
  else{LS.bad++;sBad();}
- if(LS.mode==='lesson'&&!U.pro){
-  if(heartsFromServer!=null){U.hearts=heartsFromServer;saveU();}
-  else if(!ok){U.hearts=Math.max(0,U.hearts-1);saveU();}
- }
+ // Igual que en lsFail(): reflejar siempre la vida real del servidor cuando
+ // la tenemos, sin importar U.pro local (Pro infinito ya lo decide el
+ // servidor). El fallback local solo aplica si el servidor no respondió.
+ if(heartsFromServer!=null){U.hearts=heartsFromServer;saveU();}
+ else if(LS.mode==='lesson'&&!U.pro&&!ok){U.hearts=Math.max(0,U.hearts-1);saveU();}
  countExercise();
  $('#lesson-root').querySelector('.ls-bottom').innerHTML=fbHTML(ok,ans,expl);
  afterAnswer(ok);}

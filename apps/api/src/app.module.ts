@@ -11,6 +11,7 @@ import { LearningModule } from './learning/learning.module';
 import { RankingModule } from './ranking/ranking.module';
 import { VocabularyModule } from './vocabulary/vocabulary.module';
 import { ShopModule } from './shop/shop.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ShopModule } from './shop/shop.module';
     RankingModule,
     VocabularyModule,
     ShopModule,
+    SubscriptionsModule,
   ],
   providers: [
     {

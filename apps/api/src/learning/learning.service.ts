@@ -7,6 +7,7 @@ import { ChallengesService } from './challenges.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { levelIndexForXp, REWARDS } from './constants';
 import { VocabularyService } from '../vocabulary/vocabulary.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 type Tx = Prisma.TransactionClient;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -21,6 +22,7 @@ export class LearningService {
     private readonly achievements: AchievementsService,
     private readonly challenges: ChallengesService,
     private readonly vocabulary: VocabularyService,
+    private readonly subscriptions: SubscriptionsService,
   ) {}
 
   async answerExercise(userId: string, exerciseId: string, dto: SubmitAnswerDto) {
@@ -33,6 +35,7 @@ export class LearningService {
     const course = exercise.lesson.unit.course;
     const mode = dto.mode ?? 'lesson';
     const result = this.validator.validate(exercise, dto);
+    const isPro = await this.subscriptions.isPro(userId);
 
     return this.prisma.$transaction(async (tx) => {
       await this.getOrCreateStats(tx, userId);
@@ -63,11 +66,12 @@ export class LearningService {
       let hearts: number;
 
       if (result.correct) {
-        const amount = course.type === 'PROGRAMMING' ? REWARDS.exerciseCode : REWARDS.exerciseLang;
+        const base = course.type === 'PROGRAMMING' ? REWARDS.exerciseCode : REWARDS.exerciseLang;
+        const amount = isPro ? base * 2 : base;
         const awarded = await this.awardXp(tx, userId, amount, 'EXERCISE_CORRECT', exercise.lessonId);
         xpAwarded = amount;
         hearts = awarded.hearts;
-      } else if (mode === 'lesson') {
+      } else if (mode === 'lesson' && !isPro) {
         const stats = await tx.userStats.findUniqueOrThrow({ where: { userId } });
         if (stats.hearts > 0) {
           const updated = await tx.userStats.update({ where: { userId }, data: { hearts: { decrement: 1 } } });

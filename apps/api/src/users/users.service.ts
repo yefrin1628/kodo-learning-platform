@@ -27,6 +27,10 @@ export class UsersService {
         // purely "which of those the server confirms unlocked", not a second
         // copy of the catalog.
         achievements: { include: { achievement: { select: { key: true } } } },
+        // Solo la suscripción activa importa para el cliente (Pro sí/no y
+        // qué plan) — historial/estado cancelado no se expone, igual que
+        // achievements solo manda `.key`, no la fila completa.
+        subscriptions: { where: { status: 'ACTIVE' }, include: { plan: { select: { key: true } } } },
       },
     });
     if (!user) {
@@ -78,6 +82,7 @@ export class UsersService {
 
     return {
       ...safeUser,
+      isPro: safeUser.subscriptions.length > 0,
       xpToday: xpToday._sum.amount ?? 0,
       xpWeek: xpWeek._sum.amount ?? 0,
       exercisesAnswered: exerciseStats._count,

@@ -5,9 +5,10 @@ import { AnswerValidatorService } from './answer-validator.service';
 import { AchievementsService } from './achievements.service';
 import { ChallengesService } from './challenges.service';
 import { VocabularyModule } from '../vocabulary/vocabulary.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
-  imports: [VocabularyModule],
+  imports: [VocabularyModule, SubscriptionsModule],
   controllers: [LearningController],
   providers: [LearningService, AnswerValidatorService, AchievementsService, ChallengesService],
 })
