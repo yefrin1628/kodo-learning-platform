@@ -92,6 +92,7 @@ model User {
   subscriptions     Subscription[]
   refreshTokens     RefreshToken[]
   passwordResets    PasswordResetToken[]
+  inventory         UserInventory[]
 
   @@map("users")
 }
@@ -467,6 +468,18 @@ model Plan {
   subscriptions Subscription[]
 
   @@map("plans")
+}
+
+model UserInventory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemKey     String
+  equipped    Boolean  @default(false)
+  purchasedAt DateTime @default(now())
+
+  @@unique([userId, itemKey])
+  @@map("user_inventory")
 }
 
 model Subscription {

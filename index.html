@@ -872,7 +872,10 @@ const KodoAPI={
  answerExercise(exerciseId,payload,mode){return this.request('POST','/learning/exercises/'+encodeURIComponent(exerciseId)+'/answer',Object.assign({},payload,{mode:mode}));},
  completeLesson(key){return this.request('POST','/learning/lessons/'+encodeURIComponent(key)+'/complete');},
  vocabulary(courseSlug){return this.request('GET','/vocabulary/'+encodeURIComponent(courseSlug));},
- submitVocabReview(vocabularyId,answer){return this.request('POST','/vocabulary/'+encodeURIComponent(vocabularyId)+'/review',{answer:answer});}
+ submitVocabReview(vocabularyId,answer){return this.request('POST','/vocabulary/'+encodeURIComponent(vocabularyId)+'/review',{answer:answer});},
+ shopInventory(){return this.request('GET','/shop/inventory');},
+ shopPurchase(itemKey){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/purchase');},
+ shopEquip(itemKey,equipped){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/equip',{equipped:equipped});}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -1072,6 +1075,27 @@ async function hydrateAllVocabFromApi(){
  const langs=COURSES.filter(function(c){return c.cat==='lang';});
  await Promise.all(langs.map(function(c){return hydrateVocabFromApi(c.id);}));
  render();
+}
+let shopHydrated=false;
+// Trae la verdad del servidor para gemas/vidas/objetos poseídos/equipados.
+// U.items se reemplaza por completo (igual que U.ach) porque el servidor es
+// la única fuente de qué se compró; el tema activo (U.theme) NO se toca aquí
+// a propósito — cuál tema está aplicado ahora mismo sigue siendo una
+// preferencia local, igual que antes de este bloque (el servidor no lo rastrea).
+async function hydrateShopFromApi(force){
+ if(shopHydrated&&!force)return;
+ try{
+  const inv=await KodoAPI.shopInventory();
+  U.gems=inv.gems;U.hearts=inv.hearts;
+  U.items=inv.items.map(function(i){return i.itemKey;});
+  ['glasses','headphones','crown'].forEach(function(k){
+   const row=inv.items.find(function(i){return i.itemKey===k;});
+   U.equip[k]=!!(row&&row.equipped);
+  });
+  shopHydrated=true;saveU();
+ }catch(e){
+  console.error('No se pudo cargar la tienda real, se mantiene el local.',e);
+ }
 }
 function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,
  xp:0,gems:30,hearts:5,pro:false,proPlan:'free',shield:0,
@@ -1887,6 +1911,11 @@ async function go(v){
  }else if(v==='review'&&U&&ACCESS_TOKEN){
   await Promise.all(catCourses('lang').map(function(c){return hydrateVocabFromApi(c.id,true);}));
   if(view==='review')render();
+ }else if(v==='shop'&&U&&ACCESS_TOKEN){
+  // force:true — gemas/objetos son progreso personal; igual que vocab/review,
+  // entrar aquí debe traer el estado más reciente (p.ej. compra hecha en otro dispositivo).
+  await hydrateShopFromApi(true);
+  if(view==='shop')render();
  }
 }
 function goHome(){if(U&&U.onb){go('home');}else{go('landing');}}
@@ -1962,6 +1991,7 @@ async function doRegister(){
   syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
   hydrateAllVocabFromApi();
+  hydrateShopFromApi();
   sGood();OB=null;go('onboarding');
  }catch(e){sBad();toast('❌ '+(e.message||'No se pudo crear la cuenta.'));}
  finally{authBusy(false);}
@@ -1978,6 +2008,7 @@ async function doLogin(){
   syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
   hydrateAllVocabFromApi();
+  hydrateShopFromApi();
   sGood();go(U.onb?'home':'onboarding');
  }catch(e){sBad();toast('❌ '+(e.status===401?'Correo o contraseña incorrectos.':(e.message||'No se pudo iniciar sesión.')));}
  finally{authBusy(false);}
@@ -2193,20 +2224,34 @@ function vShop(){
   else{btn=owned?'<span class="tag g">Adquirido</span>':'<button class="btn '+(U.gems>=it.price?'btn-p':'btn-ghost')+' sm" onclick="buy(\''+it.id+'\')">Comprar</button>';}
   h+='<div class="card shop-item"><div class="ic">'+it.ic+'</div><h3>'+it.name+'</h3><p>'+it.desc+'</p><div style="display:flex;justify-content:space-between;align-items:center"><span class="price">💎 '+it.price+'</span>'+btn+'</div></div>';});
  return h+'</div>';}
-function buy(id){
+async function buy(id){
  const it=SHOP.find(x=>x.id===id);if(!it)return;
+ // theme-violet es un reset gratis (price:0), nunca se compra/posee — se
+ // queda 100% local, igual que antes de este bloque.
+ if(id==='theme-violet'){U.theme=null;saveU();sClick();render();return;}
+ // Chequeos locales solo para feedback instantáneo — el servidor es quien
+ // realmente decide (precio, gemas, ya-lo-tienes, vidas llenas); nunca se
+ // confía en U.gems/U.items del cliente para autorizar la compra.
  if(['glasses','headphones','crown','badge','theme-cyan','theme-sunset'].includes(id)&&U.items.includes(id)){toast('Ya lo tienes.');return;}
  if(it.id==='hearts'&&U.hearts>=5){toast('Tus vidas ya están llenas.');return;}
  if(U.gems<it.price){sBad();toast('💎 Te faltan '+(it.price-U.gems)+' gemas. ¡Sigue aprendiendo!');return;}
- U.gems-=it.price;
- if(id==='hearts')U.hearts=5;
- else if(id==='shield')U.shield=(U.shield||0)+1;
- else if(id==='boost')U.flags.boostNext=true;
- else if(id==='theme-cyan'){U.theme='#00C2FF';U.items.push(id);}
- else if(id==='theme-sunset'){U.theme='#FF6B6B';U.items.push(id);}
- else if(id==='theme-violet'){U.theme=null;}
- else{U.items.push(id);if(U.equip.hasOwnProperty(id))U.equip[id]=true;}
- saveU();checkAch();sGood();confetti(60);toast('🛍️ ¡Compraste <b>'+it.name+'</b>!');render();}
+ try{
+  const res=await KodoAPI.shopPurchase(id);
+  U.gems=res.gems;U.hearts=res.hearts;
+  if(id==='shield')U.shield=(U.shield||0)+1;
+  else if(id==='boost')U.flags.boostNext=true;
+  else{
+   if(id==='theme-cyan')U.theme='#00C2FF';
+   else if(id==='theme-sunset')U.theme='#FF6B6B';
+   await hydrateShopFromApi(true); // refresca U.items/U.equip desde la verdad del servidor (auto-equipa accesorios recién comprados)
+  }
+  saveU();checkAch();sGood();confetti(60);toast('🛍️ ¡Compraste <b>'+it.name+'</b>!');render();
+ }catch(e){
+  sBad();
+  const msg=e.status===409?'Ya lo tienes.':(e.status===400?(e.message||'No se pudo completar la compra.'):'❌ No se pudo completar la compra. Intenta de nuevo.');
+  toast(msg);render();
+ }
+}
 function vProfile(){
  const li=lvlIndex();const base=LEVELS[li][1];const next=li<9?LEVELS[li+1][1]:null;
  const lessons=Object.keys(U.done).length;
@@ -2238,7 +2283,13 @@ function vProfile(){
  h+='</div>';
  h+='<div style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap">'+(U.pro?'':'<button class="btn btn-p" onclick="go(\'pro\')">👑 Hazte Pro</button>')+'<button class="btn btn-ghost" onclick="openGoalPicker()">🎯 Cambiar meta diaria</button>'+(U.userId?'<button class="btn btn-ghost" onclick="doLogout()">🚪 Cerrar sesión</button>':'')+'<button class="btn btn-err" onclick="confirmReset()">Reiniciar demo</button></div>';
  return h;}
-function toggleEquip(k){U.equip[k]=!U.equip[k];saveU();sClick();render();}
+async function toggleEquip(k){
+ const next=!U.equip[k];
+ try{
+  const res=await KodoAPI.shopEquip(k,next);
+  U.equip[k]=res.equipped;saveU();sClick();render();
+ }catch(e){toast('❌ No se pudo actualizar tu equipo.');}
+}
 function confirmReset(){openModal('<div class="big-n">⚠️</div><h2>¿Reiniciar todo?</h2><p class="sub">Se borrará tu cuenta, progreso, XP y gemas de este navegador. Esta acción no se puede deshacer.</p><button class="btn btn-err w100" onclick="UserRepo.clear();location.reload();">SÍ, BORRAR TODO</button><button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cancelar</button>');}
 function vProPage(){
  const inApp=U&&U.onb;
@@ -2670,6 +2721,7 @@ async function bootAuth(){
   syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
   hydrateAllVocabFromApi();
+  hydrateShopFromApi();
   rollover();
   view=U.onb?'home':'onboarding';
  }catch(e){

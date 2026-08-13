@@ -10,6 +10,7 @@ import { LessonsModule } from './lessons/lessons.module';
 import { LearningModule } from './learning/learning.module';
 import { RankingModule } from './ranking/ranking.module';
 import { VocabularyModule } from './vocabulary/vocabulary.module';
+import { ShopModule } from './shop/shop.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { VocabularyModule } from './vocabulary/vocabulary.module';
     LearningModule,
     RankingModule,
     VocabularyModule,
+    ShopModule,
   ],
   providers: [
     {
