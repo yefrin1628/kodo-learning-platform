@@ -495,7 +495,6 @@ const yesterday=()=>new Date(Date.now()-864e5).toLocaleDateString('en-CA');
 const fmtN=n=>Math.round(n).toLocaleString('es');
 function norm(s){return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim();}
 function weekKey(){const d=new Date();const t=new Date(d.getFullYear(),0,1);const w=Math.ceil(((d-t)/864e5+t.getDay()+1)/7);return d.getFullYear()+'-W'+w;}
-function hashStr(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return Math.abs(h);}
 const M_HAPPY='https://image.qwenlm.ai/public_source/f36c7ff5-4ecc-4d14-badd-ff7559d29156/1636f623b-93c3-428c-a449-48c536818d59.png';
 const M_CELEB='https://image.qwenlm.ai/public_source/f36c7ff5-4ecc-4d14-badd-ff7559d29156/1f25e3413-1985-47e4-8cfb-12ba9e0f2f26.png';
 const M_SAD='https://image.qwenlm.ai/public_source/f36c7ff5-4ecc-4d14-badd-ff7559d29156/1c8138a77-b30a-4a18-88cf-4ad5756b72c9.png';
@@ -1833,6 +1832,8 @@ async function go(v){
   // instantánea, y se vuelve a pintar si la respuesta llega a tiempo.
   try{const me=await KodoAPI.me();syncUserFromServer(me);if(view==='profile')render();}
   catch(e){console.error('No se pudo refrescar el perfil.',e);}
+ }else if(v==='ranking'&&U&&ACCESS_TOKEN){
+  loadRanking(); // siempre pide un fetch fresco al entrar, ver loadRanking()
  }
 }
 function goHome(){if(U&&U.onb){go('home');}else{go('landing');}}
@@ -2087,16 +2088,45 @@ function vPractice(){
  return '<h1 style="font-size:28px;font-weight:800;margin-bottom:6px">Practicar</h1><p style="color:var(--t2);font-weight:700;margin-bottom:24px">Entrena sin presión: la práctica no consume vidas y además las recupera.</p>'
  +'<div class="dash-grid" style="grid-template-columns:1fr 1fr"><div class="card" style="padding:28px;text-align:center"><div style="font-size:44px">🧘</div><h3 style="margin:10px 0 6px">Práctica libre</h3><p style="color:var(--t2);font-weight:600;font-size:14px;margin-bottom:18px">Ejercicios aleatorios de tus cursos. +'+REW.practice+' XP y +1 ❤️ al terminar.</p><button class="btn btn-p w100" onclick="startPractice(null)">EMPEZAR PRÁCTICA</button></div>'
  +'<div class="card" style="padding:28px;text-align:center"><div style="font-size:44px">🔁</div><h3 style="margin:10px 0 6px">Repasa idiomas</h3><p style="color:var(--t2);font-weight:600;font-size:14px;margin-bottom:18px">Refuerza las palabras que más te cuestan con repetición espaciada.</p><button class="btn btn-ok w100" onclick="go(\'review\')">IR A REPASO</button></div></div>';}
-const BOTS=[['Lucía',7],['Mateo',5],['Sofía',9],['Diego',4],['Valentina',6],['Andrés',3],['Camila',8],['Pablo',2]];
+// Ranking real: sin bots ni hash local — todo viene de GET /ranking, que ya
+// calcula rank/xp/desempate en PostgreSQL (RANK() por xp -> lecciones ->
+// última actividad, ver ranking.service.ts). RK guarda solo el estado de
+// UI (período elegido, qué llegó, si está cargando o falló).
+let RK={period:'weekly',loading:false,error:null,data:null};
+const RANKING_PERIODS=[['weekly','Semanal'],['monthly','Mensual'],['allTime','Todo el tiempo']];
+function setRankingPeriod(p){if(RK.period===p&&(RK.loading||RK.data))return;RK.period=p;loadRanking();}
+async function loadRanking(){
+ const period=RK.period; // capturado ahora: si el usuario cambia de período antes de que responda, esta respuesta vieja no debe pisar la nueva
+ RK.loading=true;RK.error=null;render();
+ try{
+  const res=await KodoAPI.ranking(period);
+  if(view!=='ranking'||RK.period!==period)return;
+  RK.data=res;RK.loading=false;render();
+ }catch(e){
+  console.error('No se pudo cargar el ranking.',e);
+  if(view!=='ranking'||RK.period!==period)return;
+  RK.loading=false;RK.error=e.message||'No se pudo cargar el ranking.';render();
+ }
+}
 function vRanking(){
- const wk=weekKey();
- const rows=BOTS.map(b=>({n:b[0],x:hashStr(b[0]+wk)%140}));
- rows.push({n:U.name+' (tú)',x:U.weekXP,me:true});
- rows.sort((a,b)=>b.x-a.x);
- let h='<h1 style="font-size:28px;font-weight:800;margin-bottom:6px">Ranking semanal</h1><p style="color:var(--t2);font-weight:700;margin-bottom:22px">Liga de la semana '+wk+'. Tus rivales son aprendices simulados de la demo: el ranking multijugador real llegará con el backend. Gana XP para subir.</p>';
+ let h='<h1 style="font-size:28px;font-weight:800;margin-bottom:6px">Ranking</h1><p style="color:var(--t2);font-weight:700;margin-bottom:18px">Compite de verdad: XP real de todos los que aprenden en Kodo.</p>';
+ h+='<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">'+RANKING_PERIODS.map(function(p){return '<button class="btn '+(RK.period===p[0]?'btn-p':'btn-ghost')+' sm" onclick="setRankingPeriod(\''+p[0]+'\')">'+p[1]+'</button>';}).join('')+'</div>';
+ if(RK.loading){h+='<div class="card" style="padding:36px;text-align:center;color:var(--t2);font-weight:700">Cargando ranking…</div>';return h;}
+ if(RK.error){h+='<div class="card" style="padding:36px;text-align:center"><p style="color:var(--t2);font-weight:700;margin-bottom:14px">No se pudo cargar el ranking. Revisa tu conexión.</p><button class="btn btn-p sm" onclick="loadRanking()">Reintentar</button></div>';return h;}
+ const data=RK.data;
+ if(!data||!data.entries.length){h+='<div class="card" style="padding:36px;text-align:center;color:var(--t2);font-weight:700">Todavía no hay suficiente actividad para mostrar un ranking. ¡Sé el primero en ganar XP!</div>';return h;}
  h+='<div class="card" style="padding:18px;max-width:640px">';
- rows.forEach((r,i)=>{const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
-  h+='<div class="lrow'+(r.me?' cur':'')+'" style="cursor:default;margin-bottom:8px"><div class="st" style="font-size:16px">'+medal+'</div><div class="tt"><b>'+esc(r.n)+'</b><span>'+(i<3?'Zona de ascenso':'')+'</span></div><span class="tag '+(r.me?'p':'')+'">'+fmtN(r.x)+' XP</span></div>';});
+ let meInTop=false;
+ data.entries.forEach(function(r){
+  const isMe=!!U.username&&r.username===U.username;
+  if(isMe)meInTop=true;
+  const medal=r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':r.rank;
+  h+='<div class="lrow'+(isMe?' cur':'')+'" style="cursor:default;margin-bottom:8px"><div class="st" style="font-size:16px">'+medal+'</div><div class="tt"><b>'+esc(r.displayName)+(isMe?' (tú)':'')+'</b><span>@'+esc(r.username)+'</span></div><span class="tag '+(isMe?'p':'')+'">'+fmtN(r.xp)+' XP</span></div>';
+ });
+ if(!meInTop&&data.me){
+  h+='<div style="margin:14px 0 10px;border-top:1px dashed var(--bd);padding-top:14px;color:var(--t2);font-weight:700;font-size:12.5px">Tu posición</div>';
+  h+='<div class="lrow cur" style="cursor:default"><div class="st" style="font-size:16px">'+data.me.rank+'</div><div class="tt"><b>'+esc(U.name)+' (tú)</b></div><span class="tag p">'+fmtN(data.me.xp)+' XP</span></div>';
+ }
  return h+'</div>';}
 function vShop(){
  let h='<h1 style="font-size:28px;font-weight:800;margin-bottom:6px">Tienda</h1><p style="color:var(--t2);font-weight:700;margin-bottom:20px">Gana 💎 con lecciones, retos y logros. Comprar nunca es obligatorio.</p><div class="tag y" style="font-size:15px;margin-bottom:22px">💎 '+fmtN(U.gems)+' gemas</div><div class="shop-grid">';
