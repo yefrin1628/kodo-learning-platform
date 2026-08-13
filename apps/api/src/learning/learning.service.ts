@@ -5,7 +5,8 @@ import { AnswerValidatorService } from './answer-validator.service';
 import { AchievementsService } from './achievements.service';
 import { ChallengesService } from './challenges.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
-import { levelIndexForXp, REWARDS, SRS_INTERVAL_DAYS } from './constants';
+import { levelIndexForXp, REWARDS } from './constants';
+import { VocabularyService } from '../vocabulary/vocabulary.service';
 
 type Tx = Prisma.TransactionClient;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,6 +20,7 @@ export class LearningService {
     private readonly validator: AnswerValidatorService,
     private readonly achievements: AchievementsService,
     private readonly challenges: ChallengesService,
+    private readonly vocabulary: VocabularyService,
   ) {}
 
   async answerExercise(userId: string, exerciseId: string, dto: SubmitAnswerDto) {
@@ -301,33 +303,13 @@ export class LearningService {
     return { dailyFirstAwarded };
   }
 
+  // The actual SRS math lives in VocabularyService.applyResult — shared with
+  // the standalone review flow (POST /vocabulary/:id/review) so there's one
+  // formula, not two that could quietly drift apart. This just finds the
+  // vocab row by course+word, the shape an Exercise's content gives us.
   private async updateVocabReview(tx: Tx, userId: string, courseId: string, word: string, correct: boolean) {
-    const vocab = await tx.vocabulary.findFirst({ where: { courseId, word: { equals: word, mode: 'insensitive' } } });
+    const vocab = await this.vocabulary.findByCourseAndWord(tx, courseId, word);
     if (!vocab) return;
-
-    const existing = await tx.vocabularyReview.findUnique({
-      where: { userId_vocabularyId: { userId, vocabularyId: vocab.id } },
-    });
-    const mastery = existing?.mastery ?? 0;
-    const newMastery = correct ? Math.min(5, mastery + 1) : Math.max(0, mastery - 1);
-    const seen = (existing?.seen ?? 0) + 1;
-    const correctAnswers = (existing?.correctAnswers ?? 0) + (correct ? 1 : 0);
-    const mistakes = correct ? Math.max(0, (existing?.mistakes ?? 0) - 1) : (existing?.mistakes ?? 0) + 1;
-    const nextReview = correct ? new Date(Date.now() + SRS_INTERVAL_DAYS[newMastery] * DAY_MS) : new Date();
-
-    await tx.vocabularyReview.upsert({
-      where: { userId_vocabularyId: { userId, vocabularyId: vocab.id } },
-      update: { mastery: newMastery, seen, correctAnswers, mistakes, lastReviewed: new Date(), nextReview },
-      create: {
-        userId,
-        vocabularyId: vocab.id,
-        mastery: newMastery,
-        seen,
-        correctAnswers,
-        mistakes,
-        lastReviewed: new Date(),
-        nextReview,
-      },
-    });
+    await this.vocabulary.applyResult(tx, userId, vocab.id, correct);
   }
 }

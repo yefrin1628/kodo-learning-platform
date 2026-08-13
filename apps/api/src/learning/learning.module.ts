@@ -4,8 +4,10 @@ import { LearningService } from './learning.service';
 import { AnswerValidatorService } from './answer-validator.service';
 import { AchievementsService } from './achievements.service';
 import { ChallengesService } from './challenges.service';
+import { VocabularyModule } from '../vocabulary/vocabulary.module';
 
 @Module({
+  imports: [VocabularyModule],
   controllers: [LearningController],
   providers: [LearningService, AnswerValidatorService, AchievementsService, ChallengesService],
 })

@@ -9,6 +9,7 @@ import { CoursesModule } from './courses/courses.module';
 import { LessonsModule } from './lessons/lessons.module';
 import { LearningModule } from './learning/learning.module';
 import { RankingModule } from './ranking/ranking.module';
+import { VocabularyModule } from './vocabulary/vocabulary.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { RankingModule } from './ranking/ranking.module';
     LessonsModule,
     LearningModule,
     RankingModule,
+    VocabularyModule,
   ],
   providers: [
     {

@@ -870,7 +870,9 @@ const KodoAPI={
  me(){return this.request('GET','/me');},
  ranking(period){return this.request('GET','/ranking?period='+(period||'weekly'));},
  answerExercise(exerciseId,payload,mode){return this.request('POST','/learning/exercises/'+encodeURIComponent(exerciseId)+'/answer',Object.assign({},payload,{mode:mode}));},
- completeLesson(key){return this.request('POST','/learning/lessons/'+encodeURIComponent(key)+'/complete');}
+ completeLesson(key){return this.request('POST','/learning/lessons/'+encodeURIComponent(key)+'/complete');},
+ vocabulary(courseSlug){return this.request('GET','/vocabulary/'+encodeURIComponent(courseSlug));},
+ submitVocabReview(vocabularyId,answer){return this.request('POST','/vocabulary/'+encodeURIComponent(vocabularyId)+'/review',{answer:answer});}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -1029,13 +1031,55 @@ async function hydrateLessonFromApi(key){
   console.error('No se pudo cargar la lección "'+key+'" desde la API, se mantiene el contenido local.',e);
  }
 }
+// ===== SRS real: GET /vocabulary/:courseSlug trae el catálogo completo de
+// palabras de un curso de idioma junto con la reseña real del usuario
+// (mastery/seen/mistakes/nextReview) o los valores por defecto si nunca se
+// repasó. Reconstruye U.srs exactamente con la misma forma que ya usaba
+// srsMark() localmente — dueList()/langStats()/vVocab()/vReview() no
+// cambian ni una línea, solo empiezan a leer datos reales. U.vocabIds
+// guarda el id real de CADA palabra (incluidas las nunca vistas, que no
+// entran en U.srs para no romper el filtro de dueList()) para poder
+// enviar una respuesta de repaso sobre cualquier palabra del catálogo.
+const vocabHydrated={};
+async function hydrateVocabFromApi(courseSlug,force){
+ if(vocabHydrated[courseSlug]&&!force)return;
+ try{
+  const rows=await KodoAPI.vocabulary(courseSlug);
+  rows.forEach(function(r){
+   const k=srsKey(courseSlug,r.word);
+   U.vocabIds[k]=r.vocabularyId;
+   if(r.seen>0){
+    U.srs[k]={word:r.word,w:r.word,language:courseSlug,lang:courseSlug,
+     seen:r.seen,wrong:r.mistakes,mistakes:r.mistakes,correctAnswers:r.correctAnswers,
+     due:r.nextReview?new Date(r.nextReview).getTime():0,nextReview:r.nextReview?new Date(r.nextReview).getTime():0,
+     mastery:r.mastery,last:r.lastReviewed?new Date(r.lastReviewed).getTime():0,lastReviewed:r.lastReviewed?new Date(r.lastReviewed).getTime():0};
+    U.learned[k]=true;
+   }
+  });
+  U.lang.words=Object.keys(U.learned).length;
+  vocabHydrated[courseSlug]=true;saveU();
+ }catch(e){
+  console.error('No se pudo cargar el vocabulario real de "'+courseSlug+'", se mantiene el local.',e);
+ }
+}
+// Se llama sin esperar (fire-and-forget) justo después de hidratar COURSES
+// en boot/login/registro: los ~30 palabras por idioma son poco peso, y sin
+// esto el aviso "Repasa hoy" del dashboard y "Palabras" del perfil se
+// quedarían con el valor local hasta que el usuario entrara a Vocabulario
+// al menos una vez en la sesión. re-renderiza al terminar por si el
+// dashboard ya estaba pintado con datos desactualizados.
+async function hydrateAllVocabFromApi(){
+ const langs=COURSES.filter(function(c){return c.cat==='lang';});
+ await Promise.all(langs.map(function(c){return hydrateVocabFromApi(c.id);}));
+ render();
+}
 function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,
  xp:0,gems:30,hearts:5,pro:false,proPlan:'free',shield:0,
  streak:0,bestStreak:0,lastActive:'',week:[],weekXP:0,weekKey:weekKey(),
  done:{},day:{date:today(),ex:0,lessons:0,xp:0,perfect:0,runs:0,goalDone:false,claimed:[]},
  goalMin:15,items:[],equip:{glasses:false,headphones:false,crown:false},theme:null,
  ach:[],flags:{},seconds:0,exercisesAnswered:0,accuracy:0,
- product:'code',code:{lessons:0,projects:0,xp:0,seconds:0},lang:{words:0,xp:0,seconds:0},learned:{},srs:{}};}
+ product:'code',code:{lessons:0,projects:0,xp:0,seconds:0},lang:{words:0,xp:0,seconds:0},learned:{},srs:{},vocabIds:{}};}
 function saveU(){if(U)UserRepo.save(U);}
 function save(){saveU();}
 function openModal(h){$('#modal-root').innerHTML='<div class="modal">'+h+'</div>';$('#modal-root').hidden=false;}
@@ -1834,6 +1878,15 @@ async function go(v){
   catch(e){console.error('No se pudo refrescar el perfil.',e);}
  }else if(v==='ranking'&&U&&ACCESS_TOKEN){
   loadRanking(); // siempre pide un fetch fresco al entrar, ver loadRanking()
+ }else if(v==='vocab'&&U&&ACCESS_TOKEN){
+  // force:true — a diferencia de la carga inicial en boot/login, entrar
+  // aquí SÍ debe traer el estado más reciente (p.ej. si el usuario acaba
+  // de aprender una palabra en una lección justo antes).
+  const c=COURSES.find(function(x){return x.id===curCourse&&x.cat==='lang';})||currentCourse('lang');
+  if(c){await hydrateVocabFromApi(c.id,true);if(view==='vocab')render();}
+ }else if(v==='review'&&U&&ACCESS_TOKEN){
+  await Promise.all(catCourses('lang').map(function(c){return hydrateVocabFromApi(c.id,true);}));
+  if(view==='review')render();
  }
 }
 function goHome(){if(U&&U.onb){go('home');}else{go('landing');}}
@@ -1908,6 +1961,7 @@ async function doRegister(){
   const me=await KodoAPI.me();
   syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
+  hydrateAllVocabFromApi();
   sGood();OB=null;go('onboarding');
  }catch(e){sBad();toast('❌ '+(e.message||'No se pudo crear la cuenta.'));}
  finally{authBusy(false);}
@@ -1923,6 +1977,7 @@ async function doLogin(){
   const me=await KodoAPI.me();
   syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
+  hydrateAllVocabFromApi();
   sGood();go(U.onb?'home':'onboarding');
  }catch(e){sBad();toast('❌ '+(e.status===401?'Correo o contraseña incorrectos.':(e.message||'No se pudo iniciar sesión.')));}
  finally{authBusy(false);}
@@ -2236,21 +2291,25 @@ function startPractice(resume){
 function reviewExFrom(langid,v){
  const deck=VOCAB[langid]||[];const others=shuffle(deck.filter(x=>x.w!==v.w)).slice(0,2).map(x=>x.es);
  const opts=shuffle([v.es].concat(others.length?others:['—','—']));
- return {t:'listen',w:v.w,lang:VOCLANG[langid],langid:langid,q:'Escucha 🔊 ¿qué significa "'+v.w+'"?',o:opts,a:opts.indexOf(v.es),word:v.w,e:v.w+' = '+v.es};}
-function startReview(langid,forceAll){
+ const vocabularyId=U.vocabIds&&U.vocabIds[srsKey(langid,v.w)];
+ return {t:'listen',w:v.w,lang:VOCLANG[langid],langid:langid,q:'Escucha 🔊 ¿qué significa "'+v.w+'"?',o:opts,a:opts.indexOf(v.es),word:v.w,e:v.w+' = '+v.es,vocabularyId:vocabularyId};}
+async function startReview(langid,forceAll){
  if(!U){go('auth');return;}
  langid=langid||'en';
+ await hydrateVocabFromApi(langid);
  let words=forceAll?(VOCAB[langid]||[]).slice():dueList(langid);
  if(!words.length)words=sample(VOCAB[langid]||[],Math.min(6,(VOCAB[langid]||[]).length));
  words=sample(words,Math.min(6,words.length));
  const ex=words.map(v=>reviewExFrom(langid,v));
  LS={mode:'review',cat:'lang',reviewLang:langid,cid:null,lid:null,ex:ex,step:-1,ok:0,bad:0,totalXP:0,answered:false,sel:null,typed:'',picks:[],bank:[],finished:false,resume:null,code:'',out:null,busy:false,boostApplied:false,heard:'',spOk:false};
  startTimer();$('#lesson-root').hidden=false;renderLS();}
-function startReviewDue(){
- const langs=catCourses('lang');let words=[];
+async function startReviewDue(){
+ const langs=catCourses('lang');
+ await Promise.all(langs.map(function(c){return hydrateVocabFromApi(c.id);}));
+ let words=[];
  langs.forEach(c=>{dueList(c.id).forEach(v=>words.push({langid:c.id,v:v}));});
  words=sample(words,Math.min(8,words.length));
- if(!words.length){startReview('en',true);return;}
+ if(!words.length){await startReview('en',true);return;}
  const ex=words.map(x=>reviewExFrom(x.langid,x.v));
  LS={mode:'review',cat:'lang',reviewLang:null,cid:null,lid:null,ex:ex,step:-1,ok:0,bad:0,totalXP:0,answered:false,sel:null,typed:'',picks:[],bank:[],finished:false,resume:null,code:'',out:null,busy:false,boostApplied:false,heard:'',spOk:false};
  startTimer();$('#lesson-root').hidden=false;renderLS();}
@@ -2327,7 +2386,7 @@ function mTap(side,i){
    if(Object.keys(LS.mmatched).length===LS.ex[LS.step].pairs.length)matchDone();}
   else{sBad();const l=LS.mSelL,rr=LS.mSelR;const le=document.querySelector('#mL .mitem[data-i="'+l+'"]'),re=document.querySelector('#mR .mitem[data-i="'+rr+'"]');if(le)le.classList.add('bad');if(re)re.classList.add('bad');LS.mSelL=null;LS.mSelR=null;
    setTimeout(function(){const a=document.querySelector('#mL .mitem[data-i="'+l+'"]'),b=document.querySelector('#mR .mitem[data-i="'+rr+'"]');if(a)a.classList.remove('bad','sel');if(b)b.classList.remove('bad','sel');},450);}}}
-async function matchDone(){const ex=LS.ex[LS.step];markWords(ex,true);
+async function matchDone(){const ex=LS.ex[LS.step];markWords(ex,true,!!ex.id);
  let xp=REW.langEx*lessonMult();
  if(ex.id){
   try{const res=await KodoAPI.answerExercise(ex.id,{pairs:ex.pairs.map(function(p){return{left:p[0],right:p[1]};})},apiMode());xp=res.xpAwarded;}
@@ -2348,9 +2407,22 @@ function micStart(){const ex=LS.ex[LS.step];if(LS.answered)return;
 function simRatio(a,b){a=norm(a);b=norm(b);if(!a||!b)return 0;const aw=a.split(' '),bw=b.split(' ');let m=0;bw.forEach(w=>{if(aw.includes(w))m++;});return m/bw.length;}
 function updateSpeak(){const el=$('#heard');if(el)el.textContent=LS.heard?('Te escuché: "'+LS.heard+'"'):'';const b=$('#micBtn');if(b)b.classList.remove('rec');}
 function speakSkip(){LS.heard='(practicado)';LS.spOk=true;updateSpeak();lsCheckState();}
-function markWords(ex,ok){if(LS.cat!=='lang')return;
+// serverHandled: true cuando el servidor ya actualizó VocabularyReview para
+// este intento (ejercicio real de lección vía ex.id, o repaso SRS real vía
+// ex.vocabularyId) — en ese caso U.srs se resincroniza aparte (ver
+// hydrateVocabFromApi) y NO se recalcula localmente para no duplicar/pisar
+// el resultado real con la fórmula local. Solo cuando falla la llamada al
+// servidor (o el ejercicio nunca se hidrató) se usa srsMark() como antes.
+function markWords(ex,ok,serverHandled){if(LS.cat!=='lang')return;
+ if(serverHandled)return;
  const langid=ex.langid||LS.reviewLang||((COURSES.find(x=>x.id===LS.cid)||{}).id);if(!langid)return;
- let words=[];if(ex.word)words.push(ex.word);if(ex.t==='listen'&&ex.w)words.push(ex.w);if(ex.t==='match'&&ex.pairs)ex.pairs.forEach(p=>words.push(p[0]));
+ // ex.word y ex.w son el mismo valor en un ejercicio 'listen' (ver
+ // reviewExFrom) — deben ser alternativas, no sumarse, o un mismo repaso
+ // cuenta el acierto/fallo dos veces (mismo bug que ya se corrigió en el
+ // backend hace varios bloques: answer-validator.service.ts#vocabWordsFor).
+ let words=[];if(ex.word)words.push(ex.word);else if(ex.t==='listen'&&ex.w)words.push(ex.w);
+ if(ex.t==='match'&&ex.pairs)ex.pairs.forEach(p=>words.push(p[0]));
+ words=[...new Set(words.map(function(w){return w.toLowerCase();}))];
  words.forEach(w=>srsMark(langid,w,ok));}
 function lsCheckState(){const cb=$('#lscheck');if(!cb)return;const ex=LS.ex[LS.step];let ok=false;
  if(ex.t==='choice'||ex.t==='predict'||ex.t==='tf'||ex.t==='fill'||ex.t==='bug'||ex.t==='listen'||ex.t==='convo')ok=LS.sel!=null;
@@ -2400,7 +2472,7 @@ async function lsCheck(){
     if(!lines.some(l=>l.toLowerCase()===want)){lsFail('La consola debe imprimir exactamente: "'+expK+'"',ex.e||'');return;}}
    lsWinRun(ex);});
   return;}
- if(ex.t==='speak'){markWords(ex,true);await resolveLang(true,ex.target,ex.e||'',ex);return;}
+ if(ex.t==='speak'){markWords(ex,true,!!ex.id);await resolveLang(true,ex.target,ex.e||'',ex);return;}
  let ok=false,ans='';
  if(ex.t==='choice'||ex.t==='predict'||ex.t==='convo'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
  else if(ex.t==='tf'){ok=(LS.sel===0)===ex.a;ans=ex.a?'Verdadero':'Falso';}
@@ -2410,17 +2482,31 @@ async function lsCheck(){
  else if(ex.t==='type'){const v=norm(LS.typed);ok=ex.acc.some(a=>norm(a)===v);ans=ex.acc[0];}
  else if(ex.t==='tr'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ok=built===ex.ans;ans=ex.ans;}
  else if(ex.t==='order'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ans=(ex.w||[]).join(' ');ok=built===ans;}
- let xpAwarded=null,heartsFromServer=null,expl=ex.e||'';
+ let xpAwarded=null,heartsFromServer=null,expl=ex.e||'',srsHandled=false;
  if(ex.id){
   LS.busy=true;
   try{
    const res=await KodoAPI.answerExercise(ex.id,answerPayloadFor(ex),apiMode());
    ok=res.correct;xpAwarded=res.xpAwarded;heartsFromServer=res.hearts;if(res.message)expl=res.message;
+   srsHandled=true;
   }catch(e){console.error('No se pudo validar en servidor, se evalúa localmente.',e);}
+  LS.busy=false;
+ }else if(ex.vocabularyId){
+  // Repaso SRS (LS.mode==='review'): no hay Exercise real, pero sí una
+  // palabra real del catálogo — el servidor decide correcto/mastery/
+  // próxima revisión comparando contra la traducción real, nunca confía
+  // en lo que el cliente diga que es correcto. XP no cambia aquí a
+  // propósito (sigue igual que antes de este bloque).
+  LS.busy=true;
+  try{
+   const res=await KodoAPI.submitVocabReview(ex.vocabularyId,ex.o[LS.sel]);
+   ok=res.correct;
+   srsHandled=true;
+  }catch(e){console.error('No se pudo registrar el repaso en servidor, se evalúa localmente.',e);}
   LS.busy=false;
  }
  if(['choice','predict','tf','fill','bug','listen','convo'].includes(ex.t))markOpts(ex,ok);
- markWords(ex,ok);
+ markWords(ex,ok,srsHandled);
  resolve(ok,ans,expl,xpAwarded,heartsFromServer);}
 function markOpts(ex,ok){
  document.querySelectorAll('.lopt').forEach((el,i)=>{
@@ -2583,6 +2669,7 @@ async function bootAuth(){
   const me=await KodoAPI.me();
   syncUserFromServer(me);
   if(!coursesHydrated)await hydrateCoursesFromApi();
+  hydrateAllVocabFromApi();
   rollover();
   view=U.onb?'home':'onboarding';
  }catch(e){
