@@ -884,7 +884,8 @@ const KodoAPI={
  shopPurchase(itemKey){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/purchase');},
  shopEquip(itemKey,equipped){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/equip',{equipped:equipped});},
  subscriptionCheckout(planKey){return this.request('POST','/subscriptions/checkout',{planKey:planKey});},
- subscriptionCancel(){return this.request('POST','/subscriptions/cancel');}
+ subscriptionCancel(){return this.request('POST','/subscriptions/cancel');},
+ refillHearts(){return this.request('POST','/learning/hearts/refill');}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -2716,7 +2717,20 @@ function lsExit(){
 function lsClose(){stopTimer();LS=null;$('#lesson-root').hidden=true;saveU();render();processPending();}
 function openHearts(){
  openModal('<img src="'+M_SAD+'" alt=""><h2>Te quedaste sin vidas.</h2><p class="sub">Respira: practicar también es aprender. Elige cómo continuar.</p><button class="btn btn-p w100" onclick="closeModal();startPractice(LS);">❤️ Practicar para recuperar</button>'+(U.gems>=30?'<button class="btn btn-ghost w100" style="margin-top:10px" onclick="useGemsHearts()">💎 Usar 30 gemas (tienes '+U.gems+')</button>':'')+'<button class="btn btn-err w100" style="margin-top:10px" onclick="closeModal();lsClose();">Salir de la lección</button>');}
-function useGemsHearts(){U.gems-=30;U.hearts=5;saveU();closeModal();sGood();toast('❤️ Vidas restauradas.');LS.answered=false;LS.sel=null;LS.picks=[];renderLS();}
+async function useGemsHearts(){
+ try{
+  const res=await KodoAPI.refillHearts();
+  U.gems=res.gems;U.hearts=res.hearts;saveU();
+  closeModal();sGood();toast('❤️ Vidas restauradas.');
+  LS.answered=false;LS.sel=null;LS.picks=[];renderLS();
+ }catch(e){
+  // Sin recompensa/gasto fantasma: si el servidor rechaza (gemas
+  // insuficientes, vidas llenas, Pro ya tiene infinitas) o la red falla, no
+  // se toca U.gems/U.hearts ni se cierra el modal — el mensaje real del
+  // servidor ya explica por qué.
+  sBad();toast('❌ '+(e.message||'No se pudo recargar tus vidas. Intenta de nuevo.'));
+ }
+}
 document.addEventListener('keydown',function(e){
  const tag=(document.activeElement&&document.activeElement.tagName)||'';
  if(tag==='TEXTAREA'||tag==='INPUT'){return;}

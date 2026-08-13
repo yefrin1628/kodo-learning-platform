@@ -5,7 +5,7 @@ import { AnswerValidatorService } from './answer-validator.service';
 import { AchievementsService } from './achievements.service';
 import { ChallengesService } from './challenges.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
-import { levelIndexForXp, REWARDS } from './constants';
+import { levelIndexForXp, REWARDS, HEARTS_REFILL_COST, MAX_HEARTS } from './constants';
 import { VocabularyService } from '../vocabulary/vocabulary.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
@@ -96,6 +96,31 @@ export class LearningService {
         hearts,
       };
     });
+  }
+
+  /** Server-authoritative version of the old client-only "spend gems to
+   * refill hearts mid-lesson" button. No body: cost and target hearts are
+   * fixed constants, never client-supplied. A single guarded UPDATE keeps
+   * the check-and-act atomic, so a double-click/concurrent request can't
+   * double-charge (the loser's WHERE simply matches 0 rows once the winner
+   * commits, since Postgres re-evaluates it against the latest row). */
+  async refillHearts(userId: string) {
+    if (await this.subscriptions.isPro(userId)) {
+      throw new BadRequestException('Ya tienes vidas infinitas con Pro.');
+    }
+
+    const updated = await this.prisma.userStats.updateMany({
+      where: { userId, gems: { gte: HEARTS_REFILL_COST }, hearts: { lt: MAX_HEARTS } },
+      data: { gems: { decrement: HEARTS_REFILL_COST }, hearts: MAX_HEARTS },
+    });
+    if (updated.count === 0) {
+      const stats = await this.prisma.userStats.findUniqueOrThrow({ where: { userId } });
+      if (stats.hearts >= MAX_HEARTS) throw new BadRequestException('Tus vidas ya están llenas.');
+      throw new BadRequestException('No tienes suficientes gemas.');
+    }
+
+    const stats = await this.prisma.userStats.findUniqueOrThrow({ where: { userId } });
+    return { gems: stats.gems, hearts: stats.hearts };
   }
 
   async completeLesson(userId: string, lessonKey: string) {

@@ -36,3 +36,6 @@ export const REWARDS = {
 } as const;
 
 export const SRS_INTERVAL_DAYS = [0, 1, 3, 7, 16, 30];
+
+export const HEARTS_REFILL_COST = 30;
+export const MAX_HEARTS = 5;

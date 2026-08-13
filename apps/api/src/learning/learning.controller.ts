@@ -22,4 +22,11 @@ export class LearningController {
   complete(@CurrentUser() user: { userId: string }, @Param('key') key: string) {
     return this.learningService.completeLesson(user.userId, key);
   }
+
+  // No @Body() on purpose: cost/target hearts are fixed server-side
+  // constants, never read from the client.
+  @Post('hearts/refill')
+  refillHearts(@CurrentUser() user: { userId: string }) {
+    return this.learningService.refillHearts(user.userId);
+  }
 }
