@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@kodo/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnswerValidatorService } from './answer-validator.service';
@@ -23,6 +30,7 @@ export class LearningService {
     private readonly challenges: ChallengesService,
     private readonly vocabulary: VocabularyService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly config: ConfigService,
   ) {}
 
   async answerExercise(userId: string, exerciseId: string, dto: SubmitAnswerDto) {
@@ -31,6 +39,17 @@ export class LearningService {
       include: { options: true, lesson: { include: { unit: { include: { course: true } } } } },
     });
     if (!exercise) throw new NotFoundException('Ejercicio no encontrado.');
+    // Kill-switch: runStudentCode() executes submitted code in-process via
+    // Node's `vm` module, which is not a real sandbox (see run-student-code.ts).
+    // Gates ALL RUN exercises regardless of content.lang — the validator
+    // itself doesn't discriminate by language, so a direct API call could
+    // reach runStudentCode() for any RUN exercise, not just non-html ones.
+    // Thrown before any side effect (no ExerciseProgress row, no hearts/XP).
+    if (exercise.type === 'RUN' && !this.isRunExecutionEnabled()) {
+      throw new ServiceUnavailableException(
+        'La ejecución de código está temporalmente deshabilitada. Vuelve pronto.',
+      );
+    }
 
     const course = exercise.lesson.unit.course;
     const mode = dto.mode ?? 'lesson';
@@ -327,6 +346,12 @@ export class LearningService {
     if (!prev?.completed) {
       throw new ForbiddenException('Completa la lección anterior primero.');
     }
+  }
+
+  /** Defaults to enabled (matches current dev/existing behavior) — only an
+   * explicit `RUN_EXECUTION_ENABLED=false` turns the kill-switch on. */
+  private isRunExecutionEnabled(): boolean {
+    return this.config.get<string>('RUN_EXECUTION_ENABLED') !== 'false';
   }
 
   private async updateStreak(tx: Tx, userId: string): Promise<{ dailyFirstAwarded: boolean }> {
