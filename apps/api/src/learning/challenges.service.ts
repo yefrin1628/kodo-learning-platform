@@ -73,6 +73,10 @@ export class ChallengesService {
         const streak = await tx.streak.findUnique({ where: { userId } });
         return streak?.lastActiveDate === today() ? 1 : 0;
       }
+      case 'lesson_perfect':
+        return tx.lessonProgress.count({ where: { userId, perfect: true, completedAt: { gte: dayStart } } });
+      case 'code_run':
+        return tx.exerciseProgress.count({ where: { userId, lastAttemptAt: { gte: dayStart }, exercise: { type: 'RUN' } } });
       default:
         return 0;
     }

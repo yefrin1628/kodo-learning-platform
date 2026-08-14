@@ -823,21 +823,21 @@ const ACHS=[
  {id:'first-course',ic:'🎓',name:'Primer curso',desc:'Completa un curso entero',test:()=>COURSES.some(c=>flatLessons(c).length&&flatLessons(c).every(l=>U.done[l]))},
  {id:'lessons10',ic:'📚',name:'10 lecciones',desc:'Completa 10 lecciones',test:()=>Object.keys(U.done).length>=10}
 ];
-// Los primeros 4 (server:true) tienen equivalente real en el Challenge del
-// backend (misma key) — su desbloqueo/recompensa los confirma el servidor
-// vía challengesCompleted (ver applyServerChallenges), checkChallenges() los
-// ignora. get()/goal/ic/t/rw siguen siendo locales solo para pintar la
-// barra de progreso al instante, no otorgan nada por sí mismos. Los 2
-// últimos (ch-perf, ch-code) no tienen representación server-side todavía,
-// así que se quedan exactamente como estaban: checkChallenges() los sigue
-// resolviendo y pagando en el cliente.
+// Los 6 (server:true) tienen equivalente real en el Challenge del backend
+// (misma key) — su desbloqueo/recompensa los confirma el servidor vía
+// challengesCompleted (ver applyServerChallenges), checkChallenges() los
+// ignora por completo. get()/goal/ic/t/rw siguen siendo locales solo para
+// pintar la barra de progreso al instante, nunca otorgan nada por sí
+// mismos. ch-perf/ch-code eran los últimos 2 que sí otorgaban XP local sin
+// validación del servidor (gainXP() directo) — hallazgo del audit de
+// seguridad, cerrado en este bloque igual que los otros 4.
 const CHALLENGES=[
  {id:'ch-lessons3',ic:'📚',t:'Completa 3 lecciones hoy',rw:'+50 XP',goal:3,get:()=>U.day.lessons,server:true},
  {id:'ch-xp100',ic:'⭐',t:'Gana 100 XP hoy',rw:'+30 gemas',goal:100,get:()=>U.day.xp,server:true},
  {id:'ch-exercises20',ic:'🧩',t:'Responde 20 ejercicios',rw:'+40 XP',goal:20,get:()=>U.day.ex,server:true},
  {id:'ch-streak',ic:'🔥',t:'Mantén tu racha activa',rw:'+15 gemas',goal:1,get:()=>U.streak>=1?1:0,server:true},
- {id:'ch-perf',ic:'💯',t:'Completa una lección sin errores',rw:'+50 XP',goal:1,get:()=>U.day.perfect,apply:()=>gainXP(50)},
- {id:'ch-code',ic:'🧪',t:'Ejecuta código en el editor',rw:'+20 XP',goal:1,get:()=>U.day.runs,apply:()=>gainXP(20)}
+ {id:'ch-perf',ic:'💯',t:'Completa una lección sin errores',rw:'+50 XP',goal:1,get:()=>U.day.perfect,server:true},
+ {id:'ch-code',ic:'🧪',t:'Ejecuta código en el editor',rw:'+20 XP',goal:1,get:()=>U.day.runs,server:true}
 ];
 const ONB=[
  {q:'¿Qué quieres aprender?',opts:[{v:'code',t:'Programación',d:'HTML, CSS, JavaScript y Python',ic:'💻'},{v:'lang',t:'Idiomas',d:'Inglés, francés y portugués',ic:'🌍'},{v:'both',t:'Ambos',d:'El pack completo',ic:'✨'}]},
@@ -949,22 +949,13 @@ function syncUserFromServer(serverUser){
  }
  if(typeof serverUser.exercisesToday==='number')U.day.ex=serverUser.exercisesToday;
  U.day.date=today(); // evita que el próximo rollover() descarte lo que se acaba de reconstruir arriba
- // Challenges ya reclamados hoy (server-backed): se suman a U.day.claimed
- // sin tocar lo que ya hubiera ahí (los 2 challenges local-only viven en el
- // mismo array). Sin esto, un dispositivo nuevo mostraría "en progreso" un
- // challenge que el servidor ya pagó hoy en otro dispositivo.
+ // Challenges ya reclamados hoy (los 6 son server-backed): se suman a
+ // U.day.claimed sin tocar lo que ya hubiera ahí. Sin esto, un dispositivo
+ // nuevo mostraría "en progreso" un challenge que el servidor ya pagó hoy
+ // en otro dispositivo.
  if(Array.isArray(serverUser.challengesClaimedToday)){
   serverUser.challengesClaimedToday.forEach(function(key){if(!U.day.claimed.includes(key))U.day.claimed.push(key);});
  }
- // Los 2 challenges local-only (ch-perf/ch-code) no tienen forma de saber si
- // ya se pagaron hoy en otro dispositivo — el servidor no los rastrea. Si al
- // reconstruir arriba su condición YA queda cumplida (p.ej. U.day.perfect
- // llega en 1 porque la lección perfecta de hoy se hizo en otro lado), se
- // marcan como reclamados SIN volver a pagar: es preferible arriesgarse a
- // no pagar de más que a duplicar la recompensa.
- CHALLENGES.forEach(function(c){
-  if(!c.server&&!U.day.claimed.includes(c.id)&&c.get()>=c.goal)U.day.claimed.push(c.id);
- });
  // U.ach se reconstruye desde los UserAchievement reales del servidor. El
  // catálogo completo (icono/nombre/descripción de los 25 logros) se queda
  // en el ACHS local — es contenido estático, no estado — solo lo que está

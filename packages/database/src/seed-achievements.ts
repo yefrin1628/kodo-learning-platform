@@ -104,6 +104,8 @@ const CHALLENGES = [
   { key: 'ch-xp100', title: 'Gana 100 XP hoy', icon: '⭐', metric: 'xp_earned', goal: 100, rewardXp: 0, rewardGems: 30 },
   { key: 'ch-exercises20', title: 'Responde 20 ejercicios', icon: '🧩', metric: 'exercises_answered', goal: 20, rewardXp: 40, rewardGems: 0 },
   { key: 'ch-streak', title: 'Mantén tu racha activa', icon: '🔥', metric: 'streak_maintained', goal: 1, rewardXp: 0, rewardGems: 15 },
+  { key: 'ch-perf', title: 'Completa una lección sin errores', icon: '💯', metric: 'lesson_perfect', goal: 1, rewardXp: 50, rewardGems: 0 },
+  { key: 'ch-code', title: 'Ejecuta código en el editor', icon: '🧪', metric: 'code_run', goal: 1, rewardXp: 20, rewardGems: 0 },
 ] as const;
 
 async function main() {
