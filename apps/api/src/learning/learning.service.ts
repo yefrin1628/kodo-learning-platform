@@ -34,6 +34,7 @@ export class LearningService {
 
     const course = exercise.lesson.unit.course;
     const mode = dto.mode ?? 'lesson';
+    await this.assertLessonUnlocked(userId, exercise.lesson.id, course.id);
     const result = this.validator.validate(exercise, dto);
     const isPro = await this.subscriptions.isPro(userId);
 
@@ -94,6 +95,8 @@ export class LearningService {
         message: result.message ?? exercise.explanation ?? null,
         xpAwarded,
         hearts,
+        correctIndex: result.correctIndex,
+        correctAnswer: result.correctAnswer,
       };
     });
   }
@@ -133,17 +136,7 @@ export class LearningService {
       throw new BadRequestException('Esta lección no tiene ejercicios.');
     }
     const course = lesson.unit.course;
-
-    const orderedLessonIds = await this.getOrderedLessonIds(course.id);
-    const idx = orderedLessonIds.indexOf(lesson.id);
-    if (idx > 0) {
-      const prev = await this.prisma.lessonProgress.findUnique({
-        where: { userId_lessonId: { userId, lessonId: orderedLessonIds[idx - 1] } },
-      });
-      if (!prev?.completed) {
-        throw new ForbiddenException('Completa la lección anterior primero.');
-      }
-    }
+    await this.assertLessonUnlocked(userId, lesson.id, course.id);
 
     const progressRows = await this.prisma.exerciseProgress.findMany({
       where: { userId, exerciseId: { in: lesson.exercises.map((e) => e.id) } },
@@ -316,6 +309,24 @@ export class LearningService {
       include: { lessons: { orderBy: { order: 'asc' }, select: { id: true } } },
     });
     return units.flatMap((u) => u.lessons.map((l) => l.id));
+  }
+
+  /** Single source of truth for "is this lesson unlocked for this user" —
+   * used by both completeLesson() and answerExercise(). The client's own
+   * U.done is never trusted for this: a lesson is unlocked only if it's
+   * first in its course, or the previous lesson has a real completed
+   * LessonProgress row. */
+  private async assertLessonUnlocked(userId: string, lessonId: string, courseId: string): Promise<void> {
+    const orderedLessonIds = await this.getOrderedLessonIds(courseId);
+    const idx = orderedLessonIds.indexOf(lessonId);
+    if (idx <= 0) return;
+
+    const prev = await this.prisma.lessonProgress.findUnique({
+      where: { userId_lessonId: { userId, lessonId: orderedLessonIds[idx - 1] } },
+    });
+    if (!prev?.completed) {
+      throw new ForbiddenException('Completa la lección anterior primero.');
+    }
   }
 
   private async updateStreak(tx: Tx, userId: string): Promise<{ dailyFirstAwarded: boolean }> {

@@ -6,6 +6,13 @@ import { SubmitAnswerDto } from './dto/submit-answer.dto';
 export interface ValidationResult {
   correct: boolean;
   message?: string;
+  // What to show the student after they've already submitted this attempt —
+  // never sent anywhere before an answer exists for it. correctIndex is the
+  // option `order` for the 7 option-based types (TRUE_FALSE included: 0/1
+  // like any other option); correctAnswer is a human-readable string for the
+  // free-text types. MATCH/RUN/SPEAK have no reveal (see callers).
+  correctIndex?: number;
+  correctAnswer?: string;
 }
 
 export function normalize(s: string): string {
@@ -33,28 +40,29 @@ export class AnswerValidatorService {
       case 'LISTEN':
       case 'PREDICT':
       case 'CONVO': {
+        const correctOpt = exercise.options.find((o) => o.isCorrect);
         if (dto.selectedIndex === undefined) {
-          return { correct: false, message: 'Falta seleccionar una opción.' };
+          return { correct: false, message: 'Falta seleccionar una opción.', correctIndex: correctOpt?.order };
         }
         const opt = exercise.options.find((o) => o.order === dto.selectedIndex);
-        return { correct: !!opt?.isCorrect };
+        return { correct: !!opt?.isCorrect, correctIndex: correctOpt?.order };
       }
 
       case 'TYPE_ANSWER': {
         const acc = (content.acc as string[] | undefined) ?? [];
         const value = normalize(dto.text ?? '');
-        return { correct: acc.some((a) => normalize(a) === value) };
+        return { correct: acc.some((a) => normalize(a) === value), correctAnswer: acc[0] };
       }
 
       case 'TRANSLATE': {
         const expected = String(content.ans ?? '').trim();
-        return { correct: (dto.text ?? '').trim() === expected };
+        return { correct: (dto.text ?? '').trim() === expected, correctAnswer: expected };
       }
 
       case 'ORDER': {
         const words = (content.w as string[] | undefined) ?? [];
         const expected = words.join(' ').trim();
-        return { correct: (dto.text ?? '').trim() === expected };
+        return { correct: (dto.text ?? '').trim() === expected, correctAnswer: expected };
       }
 
       case 'MATCH': {

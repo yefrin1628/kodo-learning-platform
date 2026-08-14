@@ -1028,9 +1028,11 @@ function adaptApiExercise(e){
  if(e.prompt!=null)item.q=e.prompt;
  if(e.explanation!=null)item.e=e.explanation;
  if(EX_OPTION_TYPES.has(t)){
-  const opts=e.options||[];
-  if(t==='tf'){const trueOpt=opts.find(o=>o.label==='Verdadero');item.a=trueOpt?!!trueOpt.isCorrect:true;}
-  else{item.o=opts.map(o=>o.label);item.a=opts.findIndex(o=>o.isCorrect);}
+  // item.a (cuál es la correcta) ya NO viene aquí — el servidor ya no la
+  // manda al cargar la lección, solo la revela en la respuesta real de
+  // POST /learning/exercises/:id/answer (ver lsCheck()). 'tf' no necesita
+  // item.o: sus botones "Verdadero"/"Falso" están fijos en la UI.
+  if(t!=='tf'){const opts=e.options||[];item.o=opts.map(o=>o.label);}
  }
  return item;
 }
@@ -2439,7 +2441,7 @@ function prepStep(){const ex=LS.ex[LS.step];if(!ex)return;
  LS.heard='';LS.spOk=false;}
 function lsSel(i){if(LS.answered)return;sClick();LS.sel=i;document.querySelectorAll('.lopt').forEach((el,k)=>el.classList.toggle('sel',k===i));lsCheckState();}
 function lsTyped(v){LS.typed=v;lsCheckState();}
-function buildBank(ex){LS.bank=shuffle((ex.w||[]).concat(ex.extra||[]));LS.picks=[];
+function buildBank(ex){LS.bank=ex.bank?ex.bank.slice():shuffle((ex.w||[]).concat(ex.extra||[]));LS.picks=[];
  $('#bank').innerHTML=LS.bank.map((w,j)=>'<button class="wchip" data-j="'+j+'" onclick="lsPick('+j+')">'+esc(w)+'</button>').join('');
  renderAnsline();}
 function lsPick(j){if(LS.answered)return;sClick();const b=document.querySelector('.wchip[data-j="'+j+'"]');if(!b||b.classList.contains('used'))return;b.classList.add('used');LS.picks.push(j);renderAnsline();lsCheckState();}
@@ -2547,22 +2549,27 @@ async function lsCheck(){
   return;}
  if(ex.t==='speak'){markWords(ex,true,!!ex.id);await resolveLang(true,ex.target,ex.e||'',ex);return;}
  let ok=false,ans='';
- if(ex.t==='choice'||ex.t==='predict'||ex.t==='convo'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
- else if(ex.t==='tf'){ok=(LS.sel===0)===ex.a;ans=ex.a?'Verdadero':'Falso';}
- else if(ex.t==='fill'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
- else if(ex.t==='bug'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
- else if(ex.t==='listen'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
- else if(ex.t==='type'){const v=norm(LS.typed);ok=ex.acc.some(a=>norm(a)===v);ans=ex.acc[0];}
- else if(ex.t==='tr'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ok=built===ex.ans;ans=ex.ans;}
- else if(ex.t==='order'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ans=(ex.w||[]).join(' ');ok=built===ans;}
  let xpAwarded=null,heartsFromServer=null,expl=ex.e||'',srsHandled=false;
  if(ex.id){
+  // Ejercicio real (hidratado desde la API): la respuesta correcta ya NO
+  // viaja en el contenido de la lección (ver GET /lessons/:key) — el
+  // servidor la revela recién aquí, después del intento real, nunca antes.
   LS.busy=true;
   try{
    const res=await KodoAPI.answerExercise(ex.id,answerPayloadFor(ex),apiMode());
    ok=res.correct;xpAwarded=res.xpAwarded;heartsFromServer=res.hearts;if(res.message)expl=res.message;
    srsHandled=true;
-  }catch(e){console.error('No se pudo validar en servidor, se evalúa localmente.',e);}
+   if(res.correctIndex!=null){
+    ex.a=(ex.t==='tf')?(res.correctIndex===0):res.correctIndex;
+    ans=(ex.t==='tf')?(ex.a?'Verdadero':'Falso'):(ex.o?ex.o[res.correctIndex]:'');
+   }
+   if(res.correctAnswer!=null)ans=res.correctAnswer;
+  }catch(e){
+   console.error('No se pudo validar la respuesta en servidor.',e);
+   LS.busy=false;
+   toast('❌ No se pudo verificar tu respuesta. Revisa tu conexión e inténtalo de nuevo.');
+   return;
+  }
   LS.busy=false;
  }else if(ex.vocabularyId){
   // Repaso SRS (LS.mode==='review'): no hay Exercise real, pero sí una
@@ -2577,6 +2584,18 @@ async function lsCheck(){
    srsHandled=true;
   }catch(e){console.error('No se pudo registrar el repaso en servidor, se evalúa localmente.',e);}
   LS.busy=false;
+ }else{
+  // Fallback puramente local: solo puede pasar aquí contenido que nunca se
+  // hidrató desde la API (ex.id ausente) — sus claves de respuesta vienen
+  // del bundle estático, no de una respuesta de red.
+  if(ex.t==='choice'||ex.t==='predict'||ex.t==='convo'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
+  else if(ex.t==='tf'){ok=(LS.sel===0)===ex.a;ans=ex.a?'Verdadero':'Falso';}
+  else if(ex.t==='fill'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
+  else if(ex.t==='bug'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
+  else if(ex.t==='listen'){ok=LS.sel===ex.a;ans=ex.o[ex.a];}
+  else if(ex.t==='type'){const v=norm(LS.typed);ok=ex.acc.some(a=>norm(a)===v);ans=ex.acc[0];}
+  else if(ex.t==='tr'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ok=built===ex.ans;ans=ex.ans;}
+  else if(ex.t==='order'){const built=LS.picks.map(j=>LS.bank[j]).join(' ');ans=(ex.w||[]).join(' ');ok=built===ans;}
  }
  if(['choice','predict','tf','fill','bug','listen','convo'].includes(ex.t))markOpts(ex,ok);
  markWords(ex,ok,srsHandled);
