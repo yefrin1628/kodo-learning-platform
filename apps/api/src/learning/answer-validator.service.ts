@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Exercise, ExerciseOption } from '@kodo/database';
-import { runStudentCode } from './run-student-code';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
+import { ExecutionService } from '../execution/execution.service';
 
 export interface ValidationResult {
   correct: boolean;
@@ -29,7 +29,9 @@ type ExerciseWithOptions = Exercise & { options: ExerciseOption[] };
 
 @Injectable()
 export class AnswerValidatorService {
-  validate(exercise: ExerciseWithOptions, dto: SubmitAnswerDto): ValidationResult {
+  constructor(private readonly execution: ExecutionService) {}
+
+  async validate(exercise: ExerciseWithOptions, dto: SubmitAnswerDto, userId: string): Promise<ValidationResult> {
     const content = (exercise.content ?? {}) as Record<string, unknown>;
 
     switch (exercise.type) {
@@ -80,7 +82,7 @@ export class AnswerValidatorService {
       case 'RUN': {
         const code = dto.code ?? '';
         if (!code.trim()) return { correct: false, message: 'Escribe algo de código primero.' };
-        const result = runStudentCode(code);
+        const result = await this.execution.run(userId, code);
         if (result.timeout) {
           return { correct: false, message: 'Tiempo agotado: revisa posibles bucles infinitos.' };
         }

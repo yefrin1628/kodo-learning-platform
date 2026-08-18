@@ -39,12 +39,15 @@ export class LearningService {
       include: { options: true, lesson: { include: { unit: { include: { course: true } } } } },
     });
     if (!exercise) throw new NotFoundException('Ejercicio no encontrado.');
-    // Kill-switch: runStudentCode() executes submitted code in-process via
-    // Node's `vm` module, which is not a real sandbox (see run-student-code.ts).
-    // Gates ALL RUN exercises regardless of content.lang — the validator
-    // itself doesn't discriminate by language, so a direct API call could
-    // reach runStudentCode() for any RUN exercise, not just non-html ones.
-    // Thrown before any side effect (no ExerciseProgress row, no hearts/XP).
+    // Kill-switch: an operational escape hatch independent of how safe the
+    // execution path is (ExecutionService now runs student code in an
+    // isolated, network-less, resource-limited Docker container — see
+    // execution.service.ts / docker/run-sandbox/) — if Docker itself has an
+    // incident, this disables RUN instantly with no deploy needed. Gates ALL
+    // RUN exercises regardless of content.lang — the validator doesn't
+    // discriminate by language, so a direct API call could reach execution
+    // for any RUN exercise, not just non-html ones. Thrown before any side
+    // effect (no ExerciseProgress row, no hearts/XP).
     if (exercise.type === 'RUN' && !this.isRunExecutionEnabled()) {
       throw new ServiceUnavailableException(
         'La ejecución de código está temporalmente deshabilitada. Vuelve pronto.',
@@ -54,7 +57,7 @@ export class LearningService {
     const course = exercise.lesson.unit.course;
     const mode = dto.mode ?? 'lesson';
     await this.assertLessonUnlocked(userId, exercise.lesson.id, course.id);
-    const result = this.validator.validate(exercise, dto);
+    const result = await this.validator.validate(exercise, dto, userId);
     const isPro = await this.subscriptions.isPro(userId);
 
     return this.prisma.$transaction(async (tx) => {
