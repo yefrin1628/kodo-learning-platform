@@ -17,7 +17,11 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  // Tightened from 10/60s: that allowed up to 600 guesses/hour per IP,
+  // generous enough to make credential stuffing practical against a
+  // specific account. 8 attempts per 15 minutes (~32/hour) still tolerates
+  // a handful of genuine typos without meaningfully aiding brute-force.
+  @Throttle({ default: { limit: 8, ttl: 900_000 } })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }

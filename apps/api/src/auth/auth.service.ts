@@ -13,6 +13,14 @@ import { LoginDto } from './dto/login.dto';
 
 const REFRESH_BYTES = 48;
 const SALT_ROUNDS = 12;
+// Computed once at module load, never from real data — exists purely so
+// login() always pays the same bcrypt.compare() cost whether or not the
+// email matches a real account. Without this, a nonexistent-email request
+// short-circuits before ever calling bcrypt (which is deliberately slow),
+// making it measurably faster than a wrong-password request for a real
+// account — a timing side-channel an attacker can use to enumerate which
+// emails have accounts, even though the error message itself is generic.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('kodo-timing-safe-dummy', SALT_ROUNDS);
 
 function hashToken(raw: string): string {
   return crypto.createHash('sha256').update(raw).digest('hex');
@@ -91,11 +99,9 @@ export class AuthService {
       where: { email: dto.email },
       include: { userProfile: true },
     });
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas.');
-    }
-    const valid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!valid) {
+    // Always compare, even for a nonexistent email — see DUMMY_PASSWORD_HASH.
+    const valid = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+    if (!user || !valid) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
     const tokens = await this.issueTokenPair(user.id);
@@ -105,9 +111,24 @@ export class AuthService {
   async refresh(refreshRaw: string) {
     const tokenHash = hashToken(refreshRaw);
     const record = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
-    if (!record || record.revokedAt || record.expiresAt < new Date()) {
+
+    if (record?.revokedAt) {
+      // This exact token was already used once — reusing an already-revoked
+      // refresh token is the classic signal of a stolen token racing the
+      // legitimate client (rotation means a valid client never replays one).
+      // Treat it as compromise: kill every other active session for this
+      // user, not just reject this one request.
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: record.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       throw new UnauthorizedException('Sesión inválida o expirada.');
     }
+
+    if (!record || record.expiresAt < new Date()) {
+      throw new UnauthorizedException('Sesión inválida o expirada.');
+    }
+
     await this.prisma.refreshToken.update({
       where: { id: record.id },
       data: { revokedAt: new Date() },
