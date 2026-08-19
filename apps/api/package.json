@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
-    "build": "nest build",
+    "build": "pnpm --filter @kodo/database run generate && nest build",
     "start:prod": "node dist/main"
   },
   "dependencies": {

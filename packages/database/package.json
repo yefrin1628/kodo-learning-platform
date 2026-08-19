@@ -5,6 +5,7 @@
   "main": "src/client.ts",
   "types": "src/client.ts",
   "scripts": {
+    "postinstall": "prisma generate",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
