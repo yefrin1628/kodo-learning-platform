@@ -855,7 +855,7 @@ let U=null,view='landing',LS=null,OB=null,pending=[],curTab='code',curCourse=nul
 // ===== Kodo API — capa real sobre NestJS (backend = fuente de verdad para
 // XP/progreso/logros; el resto de esta app sigue controlando la experiencia
 // visual, sin cambios). Ver docs/API_CONTRACT.md. =====
-const API_BASE='http://localhost:4000';
+const API_BASE=(location.hostname==='localhost'||location.hostname==='127.0.0.1')?'http://localhost:4000':'https://kodo-learning-platform-api.vercel.app';
 const REFRESH_KEY='kodo_refresh_token';
 let ACCESS_TOKEN=null;
 function getRefreshToken(){try{return localStorage.getItem(REFRESH_KEY);}catch(e){return null;}}
