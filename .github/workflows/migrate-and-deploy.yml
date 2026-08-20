@@ -31,10 +31,14 @@ jobs:
       - name: Apply pending Prisma migrations to production
         working-directory: packages/database
         env:
-          # migrate deploy needs the direct (non-pooled) connection — same
-          # reason schema.prisma's `directUrl` exists. Never DATABASE_URL
-          # (the pooled one) here.
+          # schema.prisma declares both `url` (DATABASE_URL) and `directUrl`
+          # (DATABASE_URL_UNPOOLED) — Prisma validates/resolves both env
+          # vars by name even though `migrate deploy` only actually
+          # connects via directUrl, so both must exist here. Using the same
+          # unpooled value for both is fine: DATABASE_URL is never used to
+          # connect during a migration, only parsed.
           DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
         run: npx prisma migrate deploy
 
       - name: Trigger Vercel deploy for the API
