@@ -1,0 +1,4 @@
+This API has no static assets of its own — every path is rewritten to the
+/api serverless function (see vercel.json). This empty directory exists
+only because Vercel's "Other" framework preset requires SOME output
+directory to exist, even for an API-only deployment.
