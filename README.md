@@ -109,7 +109,7 @@ http://localhost:4000
 
 - Frontend: [`koda.school`](https://koda.school) (dominio propio, DNS en Hostinger apuntando a Vercel) / `https://kodo-learning-platform.vercel.app` — proyecto Vercel independiente, sitio estático (`index.html`), sin build.
 - API: `https://kodo-learning-platform-api.vercel.app` — desplegada como función serverless de Vercel (`apps/api/src/serverless.ts`), Node compilado con `tsc` (`apps/api` y `packages/database` corren su propio `build` antes de `nest build`; ver `apps/api/vercel.json`).
-- Base de datos: PostgreSQL real en [Neon](https://neon.tech) (plan gratuito, vía la integración nativa de Storage de Vercel), migrada con `prisma migrate deploy` y sembrada con `packages/database/src/{seed,import-content,seed-achievements}.ts`.
+- Base de datos: PostgreSQL real en [Neon](https://neon.tech) (plan gratuito, vía la integración nativa de Storage de Vercel), sembrada con `packages/database/src/{seed,import-content,seed-achievements}.ts`. Las migraciones a producción **no** son manuales — corren vía GitHub Actions, que solo despliega la API si la migración fue exitosa. Ver [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 - En Vercel, el **Framework Preset** del proyecto de la API debe estar en **"Other"** (no "Nest.js") — el preset automático de NestJS de Vercel espera un patrón de entrypoint distinto al que usa este repo y rompe el build si no se cambia manualmente.
 - `RUN_EXECUTION_ENABLED=false` en producción — el Execution Worker (contenedor Docker aislado para ejecutar código de ejercicios `RUN`) está construido pero sin verificar contra un daemon Docker real todavía; ver `docs/API_CONTRACT.md`.
 

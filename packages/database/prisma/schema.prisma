@@ -9,6 +9,15 @@ datasource db {
   // compute schema diffs. Must NEVER point at DATABASE_URL itself — doing
   // that once corrupted kodo_dev's own _prisma_migrations bookkeeping.
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  // Neon's pooled connection (DATABASE_URL, used by the app at runtime) goes
+  // through PgBouncer in transaction mode, which doesn't reliably support
+  // the DDL/prepared-statement patterns `prisma migrate` needs. `directUrl`
+  // is Prisma's own mechanism for this exact split: `migrate`/`db push`
+  // commands use it automatically, the generated Client at runtime still
+  // uses `url` above — unset locally (no pooler in dev), only meaningful in
+  // production where DATABASE_URL_UNPOOLED exists (Neon's Vercel
+  // integration provisions both).
+  directUrl         = env("DATABASE_URL_UNPOOLED")
 }
 
 // ===================== Enums =====================

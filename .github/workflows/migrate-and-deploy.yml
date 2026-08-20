@@ -1,0 +1,41 @@
+name: Migrate database and deploy API
+
+# Deploy != migrate, on purpose: the API's Vercel project has Git
+# auto-deploy turned OFF (see docs/DEPLOYMENT.md). This workflow is the only
+# path that puts a new version of the API in front of real traffic, and it
+# only does so after `prisma migrate deploy` succeeds against the real
+# production database — a broken migration blocks the deploy instead of
+# leaving a new API running against an old/mismatched schema.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  migrate-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply pending Prisma migrations to production
+        working-directory: packages/database
+        env:
+          # migrate deploy needs the direct (non-pooled) connection — same
+          # reason schema.prisma's `directUrl` exists. Never DATABASE_URL
+          # (the pooled one) here.
+          DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: npx prisma migrate deploy
+
+      - name: Trigger Vercel deploy for the API
+        run: curl --fail -X POST "${{ secrets.VERCEL_API_DEPLOY_HOOK }}"
