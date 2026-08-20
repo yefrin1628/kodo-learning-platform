@@ -105,6 +105,14 @@ La API queda disponible en:
 http://localhost:4000
 ```
 
+## Producción
+
+- Frontend: [`koda.school`](https://koda.school) (dominio propio, DNS en Hostinger apuntando a Vercel) / `https://kodo-learning-platform.vercel.app` — proyecto Vercel independiente, sitio estático (`index.html`), sin build.
+- API: `https://kodo-learning-platform-api.vercel.app` — desplegada como función serverless de Vercel (`apps/api/src/serverless.ts`), Node compilado con `tsc` (`apps/api` y `packages/database` corren su propio `build` antes de `nest build`; ver `apps/api/vercel.json`).
+- Base de datos: PostgreSQL real en [Neon](https://neon.tech) (plan gratuito, vía la integración nativa de Storage de Vercel), migrada con `prisma migrate deploy` y sembrada con `packages/database/src/{seed,import-content,seed-achievements}.ts`.
+- En Vercel, el **Framework Preset** del proyecto de la API debe estar en **"Other"** (no "Nest.js") — el preset automático de NestJS de Vercel espera un patrón de entrypoint distinto al que usa este repo y rompe el build si no se cambia manualmente.
+- `RUN_EXECUTION_ENABLED=false` en producción — el Execution Worker (contenedor Docker aislado para ejecutar código de ejercicios `RUN`) está construido pero sin verificar contra un daemon Docker real todavía; ver `docs/API_CONTRACT.md`.
+
 ## Autenticación
 
 Actualmente implementada en `apps/api`:
@@ -121,16 +129,20 @@ Contraseñas con `bcrypt` (nunca en texto plano). Refresh tokens de alta entrop�
 
 ```
 Kodo
-├── PostgreSQL              ✅
-├── Prisma                  ✅
-├── NestJS API               ✅
-├── Auth real                ✅
-├── Git + GitHub             ✅
-├── Usuarios (modelo)        ⏳
-├── Cursos/Unidades/Lecciones ⏳
-├── Progreso                 ⏳
-├── XP / rachas / logros server-side ⏳
-├── SRS en backend           ⏳
-├── Frontend conectado       ⏳
-└── Kodo Pro / pagos         ⏳
+├── PostgreSQL                        ✅
+├── Prisma                            ✅
+├── NestJS API                        ✅
+├── Auth real                         ✅
+├── Git + GitHub                      ✅
+├── Cursos/Unidades/Lecciones         ✅
+├── Progreso de ejercicios            ✅
+├── XP / rachas / logros server-side  ✅
+├── SRS en backend                    ✅
+├── Tienda (gemas/vidas/temas)        ✅
+├── Suscripciones (schema real)       ✅
+├── Frontend conectado 100%           ✅
+├── Security & Server Authority Audit ✅
+├── Producción (Vercel + Neon + koda.school) ✅
+├── RUN — Execution Worker (Docker)   ⏳ construido, sin verificar
+└── Kodo Pro — pagos reales (Lemon Squeezy) ⏳ esperando aprobación de tienda
 ```
