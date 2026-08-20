@@ -2,11 +2,12 @@
   "name": "@kodo/database",
   "version": "0.1.0",
   "private": true,
-  "main": "src/client.ts",
-  "types": "src/client.ts",
+  "main": "dist/client.js",
+  "types": "dist/client.d.ts",
   "scripts": {
     "postinstall": "prisma generate",
     "generate": "prisma generate",
+    "build": "tsc",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
@@ -16,6 +17,7 @@
     "@prisma/client": "^5.20.0"
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "prisma": "^5.20.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
