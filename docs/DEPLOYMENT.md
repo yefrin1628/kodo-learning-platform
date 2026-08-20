@@ -18,7 +18,19 @@ prisma migrate deploy (contra Neon producción, conexión directa)
 
 El **frontend** (`kodo-learning-platform` en Vercel) sigue con su deploy automático normal por push a Git — no depende de la base de datos, no hay razón para bloquearlo.
 
-La **API** (`kodo-learning-platform-api` en Vercel) tiene el **auto-deploy por Git desactivado** — Settings → Git → "Ignored Build Step" o el toggle de auto-deploy, según la versión del dashboard. Solo se despliega cuando este workflow llama a su Deploy Hook, y solo después de que la migración haya sido aplicada con éxito.
+La **API** (`kodo-learning-platform-api` en Vercel) tiene el **auto-deploy por Git desactivado** para `main`, vía `git.deploymentEnabled` en `apps/api/vercel.json`:
+
+```json
+"git": {
+  "deploymentEnabled": {
+    "main": false
+  }
+}
+```
+
+Verificado contra la documentación oficial de Vercel antes de aplicarlo: esta es la opción **no deprecada** (reemplaza a `github.enabled`, que si está en `false` sí bloquea también los Deploy Hooks — por eso NO se usa esa). `git.deploymentEnabled` solo desactiva el auto-deploy por push; los Deploy Hooks siguen funcionando sin restricción, según la documentación y reportes de la comunidad de Vercel.
+
+Con esto, la API solo se despliega cuando este workflow llama a su Deploy Hook, y solo después de que la migración haya sido aplicada con éxito.
 
 ## Por qué `directUrl` en el schema
 
