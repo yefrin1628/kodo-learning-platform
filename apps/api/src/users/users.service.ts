@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 
 @Injectable()
 export class UsersService {
@@ -89,6 +90,25 @@ export class UsersService {
       exercisesToday,
       accuracy: attempts > 0 ? Math.round((100 * correctAnswers) / attempts) : 0,
       challengesClaimedToday: challengesClaimedToday.map((c) => c.challenge.key),
+    };
+  }
+
+  /** Persists the one-time onboarding quiz result server-side — previously
+   * lived only in localStorage, so a new device/browser (or a different
+   * origin, e.g. the apex domain vs the .vercel.app one) always saw a blank
+   * user and got sent through onboarding again despite having real
+   * progress. onboardingCompleted is now the single source of truth for
+   * whether to route to home or onboarding, everywhere the frontend does
+   * that check. */
+  async completeOnboarding(userId: string, dto: CompleteOnboardingDto) {
+    const profile = await this.prisma.userProfile.update({
+      where: { userId },
+      data: { onboardingCompleted: true, goalMin: dto.goalMin, product: dto.product },
+    });
+    return {
+      onboardingCompleted: profile.onboardingCompleted,
+      goalMin: profile.goalMin,
+      product: profile.product,
     };
   }
 }

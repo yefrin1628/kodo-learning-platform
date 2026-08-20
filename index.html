@@ -885,7 +885,8 @@ const KodoAPI={
  shopEquip(itemKey,equipped){return this.request('POST','/shop/'+encodeURIComponent(itemKey)+'/equip',{equipped:equipped});},
  subscriptionCheckout(planKey){return this.request('POST','/subscriptions/checkout',{planKey:planKey});},
  subscriptionCancel(){return this.request('POST','/subscriptions/cancel');},
- refillHearts(){return this.request('POST','/learning/hearts/refill');}
+ refillHearts(){return this.request('POST','/learning/hearts/refill');},
+ completeOnboarding(goalMin,product){return this.request('POST','/me/onboarding-complete',{goalMin:goalMin,product:product});}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -911,6 +912,15 @@ function syncUserFromServer(serverUser){
  U.v=4;U.userId=serverUser.id;U.email=serverUser.email;
  if(profile.displayName)U.name=profile.displayName;
  if(profile.username)U.username=profile.username;
+ // Onboarding server-authoritative: reemplaza el gate local (U.onb) que
+ // vivía solo en localStorage y por eso reaparecía en cualquier dispositivo
+ // o dominio nuevo (koda.school vs kodo-learning-platform.vercel.app, por
+ // ejemplo) pese a tener progreso real. U.onb se conserva sin tocar como
+ // objeto de respuestas transitorio durante el cuestionario (pathOrder() lo
+ // sigue usando); esto es exclusivamente el gate de navegación.
+ if(typeof profile.onboardingCompleted==='boolean')U.onboardingCompleted=profile.onboardingCompleted;
+ if(typeof profile.goalMin==='number')U.goalMin=profile.goalMin;
+ if(profile.product)U.product=profile.product;
  const stats=serverUser.userStats;
  if(stats){U.xp=stats.xp;U.gems=stats.gems;U.hearts=stats.hearts;}
  // Pro ya no es una bandera local: el servidor decide (vidas infinitas y
@@ -1106,7 +1116,7 @@ async function hydrateShopFromApi(force){
   console.error('No se pudo cargar la tienda real, se mantiene el local.',e);
  }
 }
-function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,
+function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,onboardingCompleted:false,
  xp:0,gems:30,hearts:5,pro:false,proPlan:'free',shield:0,
  streak:0,bestStreak:0,lastActive:'',week:[],weekXP:0,weekKey:weekKey(),
  done:{},day:{date:today(),ex:0,lessons:0,xp:0,perfect:0,runs:0,goalDone:false,claimed:[]},
@@ -1927,7 +1937,7 @@ async function go(v){
   if(view==='shop')render();
  }
 }
-function goHome(){if(U&&U.onb){go('home');}else{go('landing');}}
+function goHome(){if(U&&U.onboardingCompleted){go('home');}else{go('landing');}}
 function render(){
  if(U&&U.theme)document.documentElement.style.setProperty('--p',U.theme);
  else document.documentElement.style.setProperty('--p','#6C5CE7');
@@ -1936,10 +1946,10 @@ function render(){
  else if(view==='onboarding')$('#root').innerHTML=vOnb();
  else if(view==='pro')$('#root').innerHTML=vProPage();
  else $('#root').innerHTML=vShell();}
-function tileClick(id){if(U&&U.onb){openCourse(id);}else{go('auth');}}
-function tileShop(){if(U&&U.onb){go('shop');}else{go('auth');}}
-function tileRank(){if(U&&U.onb){go('ranking');}else{go('auth');}}
-function tileHome(){if(U&&U.onb){go('home');}else{go('auth');}}
+function tileClick(id){if(U&&U.onboardingCompleted){openCourse(id);}else{go('auth');}}
+function tileShop(){if(U&&U.onboardingCompleted){go('shop');}else{go('auth');}}
+function tileRank(){if(U&&U.onboardingCompleted){go('ranking');}else{go('auth');}}
+function tileHome(){if(U&&U.onboardingCompleted){go('home');}else{go('auth');}}
 function prodSwitch(){return '<div class="prod-switch"><button class="prod-btn code'+(U.product==='code'?' on':'')+'" onclick="setProduct(\'code\')">💻 Code</button><button class="prod-btn lang'+(U.product==='lang'?' on':'')+'" onclick="setProduct(\'lang\')">🌎 Languages</button></div>';}
 function setProduct(p){U.product=p;curTab=p;saveU();sClick();if(view==='course'||view==='vocab'||view==='review')view='learn';render();window.scrollTo(0,0);}
 function infoModal(k){
@@ -1952,7 +1962,7 @@ function infoModal(k){
  }[k];
  openModal('<h2>'+C.t+'</h2><p class="sub" style="text-align:left">'+C.b+'</p><button class="btn btn-p w100" onclick="closeModal()">ENTENDIDO</button>');}
 function vLanding(){
- const loggedIn=U&&U.onb;
+ const loggedIn=U&&U.onboardingCompleted;
  return '<div class="l-nav glass">'+logoHTML()
  +'<div class="l-links"><a onclick="scrollTo2(\'cursos\')">Cursos</a><a onclick="scrollTo2(\'metodo\')">Método</a><a onclick="scrollTo2(\'testimonios\')">Opiniones</a><a onclick="go(\'pro\')">Pro</a></div>'
  +(loggedIn?'<button class="btn btn-ghost sm" onclick="go(\'home\')">Continuar</button>':'<button class="btn btn-ghost sm" onclick="authMode=\'login\';go(\'auth\')">Ingresar</button>')
@@ -1977,7 +1987,7 @@ function vLanding(){
  +'<div class="f-col"><h4>Legal</h4><a onclick="infoModal(\'privacy\')">Privacidad</a><a onclick="infoModal(\'terms\')">Términos</a></div></div>'
  +'<div class="f-bot"><span>© 2026 Kodo · Hecho con 💜 para aprender jugando.</span><span>🌐 Español · Demo MVP</span></div></footer>';}
 function scrollTo2(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth'});}
-function startNow(){if(U&&U.onb){go('home');return;}if(U){go('onboarding');return;}go('auth');}
+function startNow(){if(U&&U.onboardingCompleted){go('home');return;}if(U){go('onboarding');return;}go('auth');}
 function vAuth(){
  const isLogin=authMode==='login';
  let cont='';
@@ -2018,7 +2028,7 @@ async function doLogin(){
   if(!coursesHydrated)await hydrateCoursesFromApi();
   hydrateAllVocabFromApi();
   hydrateShopFromApi();
-  sGood();go(U.onb?'home':'onboarding');
+  sGood();go(U.onboardingCompleted?'home':'onboarding');
  }catch(e){sBad();toast('❌ '+(e.status===401?'Correo o contraseña incorrectos.':(e.message||'No se pudo iniciar sesión.')));}
  finally{authBusy(false);}
 }
@@ -2041,7 +2051,15 @@ function vOnb(){
  return '<div class="ob-wrap"><div class="ob-top"><button class="ob-x" onclick="obBack()">✕</button><div class="ob-dots">'+ONB.map((x,i)=>'<i class="'+(i<=OB.step?'on':'')+'"></i>').join('')+'</div></div><h1 class="ob-q">'+st.q+'</h1><div class="ob-opts">'+st.opts.map(o=>'<button class="ob-opt" onclick="obPick('+OB.step+','+(typeof o.v==='number'?o.v:"'"+o.v+"'")+')"><span class="ic">'+o.ic+'</span><span>'+o.t+(o.d?'<small>'+o.d+'</small>':'')+'</span></button>').join('')+'</div></div>';}
 function obBack(){if(OB.step===0){OB=null;go('landing');}else{OB.step--;render();}}
 function recCourses(){const l=OB.a.learn;if(l==='code')return['js','html','py'];if(l==='lang')return['en','fr','pt'];return['js','en','py'];}
-function finishOnb(){U.onb=OB.a;U.goalMin=OB.a.time;U.product=(OB.a.learn==='lang')?'lang':'code';saveU();confetti(120);sWin();toast('🎉 ¡Bienvenido a Kodo, <b>'+esc(U.name)+'</b>!');OB=null;go('home');}
+async function finishOnb(){
+ const goalMin=OB.a.time;const product=(OB.a.learn==='lang')?'lang':'code';
+ const btn=document.querySelector('.ob-rec .btn-p');if(btn){btn.disabled=true;btn.textContent='Un momento…';}
+ try{
+  await KodoAPI.completeOnboarding(goalMin,product);
+  U.onb=OB.a;U.goalMin=goalMin;U.product=product;U.onboardingCompleted=true;saveU();
+  confetti(120);sWin();toast('🎉 ¡Bienvenido a Kodo, <b>'+esc(U.name)+'</b>!');OB=null;go('home');
+ }catch(e){sBad();toast('❌ No se pudo guardar tu configuración. Intenta de nuevo.');if(btn){btn.disabled=false;btn.textContent='¡EMPEZAR MI AVENTURA!';}}
+}
 function vShell(){
  const tabs=[['home','Inicio',IC.home],['learn','Aprender',IC.book],['practice','Practicar',IC.dumb],['ranking','Ranking',IC.trophy],['profile','Perfil',IC.user]];
  const sideTabs=tabs.concat([['shop','Tienda',IC.shop]]);
@@ -2301,7 +2319,7 @@ async function toggleEquip(k){
 }
 function confirmReset(){openModal('<div class="big-n">⚠️</div><h2>¿Reiniciar todo?</h2><p class="sub">Se borrará tu cuenta, progreso, XP y gemas de este navegador. Esta acción no se puede deshacer.</p><button class="btn btn-err w100" onclick="UserRepo.clear();location.reload();">SÍ, BORRAR TODO</button><button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cancelar</button>');}
 function vProPage(){
- const inApp=U&&U.onb;
+ const inApp=U&&U.onboardingCompleted;
  const back=inApp?'<button class="btn btn-ghost sm" onclick="go(\'home\')">← Volver</button>':'<button class="btn btn-ghost sm" onclick="go(\'landing\')">← Inicio</button>';
  const F=PRICING.plans.free,M=PRICING.plans.pro_monthly,A=PRICING.plans.pro_annual;
  const codeF=['Todos los cursos de código','Proyectos y rutas avanzadas','Ejercicios extra','Certificados'];
@@ -2778,7 +2796,7 @@ async function bootAuth(){
   hydrateAllVocabFromApi();
   hydrateShopFromApi();
   rollover();
-  view=U.onb?'home':'onboarding';
+  view=U.onboardingCompleted?'home':'onboarding';
  }catch(e){
   if(e&&e.status){
    // Respuesta real del servidor (401: refresh token inválido/expirado) — sesión terminada de verdad.
@@ -2789,7 +2807,7 @@ async function bootAuth(){
    // se conserva lo último conocido mientras se puede reintentar.
    console.error('No se pudo recuperar la sesión (fallo de red), se conserva el estado local.',e);
    const cached=UserRepo.load();
-   if(cached){U=cached;rollover();view=U.onb?'home':'onboarding';}
+   if(cached){U=cached;rollover();view=U.onboardingCompleted?'home':'onboarding';}
    else{view='landing';}
   }
  }

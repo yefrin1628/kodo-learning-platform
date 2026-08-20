@@ -109,6 +109,14 @@ model UserProfile {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Onboarding quiz result — server-authoritative so it survives a new
+  // device/browser instead of living only in localStorage (was the root
+  // cause of returning users seeing the onboarding flow again on koda.school
+  // after localStorage on the .vercel.app origin never carried over).
+  onboardingCompleted Boolean @default(false)
+  goalMin             Int     @default(15)
+  product             String  @default("code")
+
   @@map("user_profiles")
 }
 
