@@ -1,0 +1,54 @@
+name: Cleanup test accounts
+
+# Mantenimiento manual, no parte del pipeline de deploy — se dispara a mano
+# desde la pestaña Actions. Reutiliza el mismo secret DATABASE_URL_UNPOOLED
+# que ya usa migrate-and-deploy.yml; la credencial nunca aparece en el chat
+# ni en ningún archivo del repo (ver docs/DEPLOYMENT.md).
+#
+# Por defecto corre en modo simulación (dry-run): solo lista las cuentas
+# que borraría. Hay que escribir "yes" explícitamente en el input `confirm`
+# para que borre de verdad.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Escribe "yes" para borrar de verdad. Cualquier otro valor = solo simulación.'
+        required: false
+        default: ''
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        working-directory: packages/database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: npx prisma generate
+
+      - name: Run cleanup (dry-run by default, --confirm only if input is "yes")
+        working-directory: packages/database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" = "yes" ]; then
+            npx tsx src/cleanup-test-accounts.ts --confirm
+          else
+            npx tsx src/cleanup-test-accounts.ts
+          fi

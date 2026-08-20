@@ -11,7 +11,8 @@
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
-    "seed": "tsx src/seed.ts"
+    "seed": "tsx src/seed.ts",
+    "cleanup:test-accounts": "tsx src/cleanup-test-accounts.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0"
