@@ -198,6 +198,22 @@ footer.footer{border-top:1px solid var(--bd);margin-top:20px;text-align:left;pad
 .mascot-box img{width:96px;height:96px;object-fit:cover;border-radius:28px;border:2px solid var(--bd2)}
 .mascot-box .acc{position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
 .acc.glasses{top:36%;font-size:30px}.acc.headphones{top:-14px;font-size:34px}.acc.crown{top:-20px;font-size:32px}
+.mascot-box.editable{cursor:pointer}
+.mascot-box.editable:hover img{filter:brightness(.85)}
+.avatar-cam-badge{position:absolute;right:-4px;bottom:-4px;width:30px;height:30px;border-radius:50%;background:var(--p);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px}
+.ep-avatar-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px}
+.ep-avatar-box{position:relative;width:100px;height:100px;cursor:pointer}
+.ep-avatar-box img{width:100px;height:100px;border-radius:28px;object-fit:cover;border:2px solid var(--bd2);transition:filter .15s}
+.ep-avatar-box:hover img{filter:brightness(.85)}
+.ep-avatar-cam{position:absolute;right:-4px;bottom:-4px;width:32px;height:32px;border-radius:50%;background:var(--p);border:3px solid var(--s1);display:flex;align-items:center;justify-content:center;font-size:15px;pointer-events:none}
+.ep-username-row{display:flex;align-items:center;background:var(--s2);border:1px solid var(--bd2);border-radius:13px;padding:0 16px;transition:border .2s}
+.ep-username-row:focus-within{border-color:var(--p)}
+.ep-username-row span{color:var(--t2);font-weight:800}
+.ep-username-row input{flex:1;background:none;border:none;padding:14px 0 14px 4px;color:var(--t);font-family:inherit;font-size:15px;font-weight:600;outline:none}
+.ep-textarea{width:100%;background:var(--s2);border:1px solid var(--bd2);border-radius:13px;padding:14px 16px;color:var(--t);font-family:inherit;font-size:15px;font-weight:600;outline:none;resize:vertical;min-height:80px;transition:border .2s}
+.ep-textarea:focus{border-color:var(--p)}
+.ep-hint{color:var(--t2);font-size:12px;font-weight:700;margin-top:6px;text-align:right}
+.ep-error{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:12px;padding:12px 14px;font-weight:700;font-size:13.5px;margin-bottom:16px;text-align:left}
 .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
 .stat{padding:16px;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
 .stat .v{font-size:21px;font-weight:800;display:flex;align-items:center;gap:8px}
@@ -321,6 +337,32 @@ footer.footer{border-top:1px solid var(--bd);margin-top:20px;text-align:left;pad
 .ach b{font-size:14.5px}
 .ach p{color:var(--t2);font-size:12.5px;font-weight:600;margin-top:4px}
 .prof-head{display:flex;gap:24px;align-items:center;padding:28px;flex-wrap:wrap}
+.pub-prof-card{max-width:420px;margin:0 auto;padding:36px 28px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.pub-avatar{width:100px;height:100px;border-radius:28px;object-fit:cover;border:2px solid var(--bd2);margin-bottom:16px}
+.pub-name{font-size:24px;font-weight:800}
+.pub-username{color:var(--t2);font-weight:700;margin-top:2px}
+.pub-bio{color:var(--t);font-weight:600;font-size:14.5px;margin-top:12px;max-width:340px}
+.pub-stats{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.pub-counts{display:flex;gap:22px;margin-top:18px}
+.pub-counts span{cursor:pointer;font-weight:800;font-size:15px;transition:color .15s}
+.pub-counts span:hover{color:var(--p)}
+.pub-counts small{display:block;color:var(--t2);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.pub-follow-btn{margin-top:20px;min-width:180px}
+.pub-actions{display:flex;gap:10px;align-items:center;margin-top:16px}
+.pub-actions span{color:var(--t2)}
+.btn-link{background:none;border:none;color:var(--t2);font-weight:700;font-size:13px;cursor:pointer;padding:4px}
+.btn-link:hover{color:var(--err)}
+.notif-bell{position:fixed;top:18px;right:24px;z-index:50;width:44px;height:44px;border-radius:50%;background:var(--s1);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;transition:transform .12s;padding:0}
+.notif-bell:hover{transform:scale(1.06)}
+.notif-badge{position:absolute;top:-3px;right:-3px;background:var(--err);color:#fff;font-size:10.5px;font-weight:800;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--bg)}
+.notif-row{display:flex;align-items:center;gap:12px;padding:12px 8px;border-radius:14px;cursor:pointer;transition:background .15s;position:relative}
+.notif-row:hover{background:var(--s2)}
+.notif-row.unread{background:rgba(108,92,231,.08)}
+.notif-av{width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.notif-body{flex:1;font-size:14px;font-weight:600}
+.notif-body b{font-weight:800}
+.notif-body small{display:block;color:var(--t2);font-weight:700;font-size:12px;margin-top:2px}
+.notif-dot{width:9px;height:9px;border-radius:50%;background:var(--p);flex-shrink:0}
 .chrow{display:flex;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--bd)}
 .chrow:last-child{border-bottom:none}
 .chrow .ci{font-size:26px}
@@ -850,7 +892,7 @@ const TESTI=[
  {n:'Diego R.',r:'Kodo Languages · Inglés',q:'Lecciones cortas: escuchar, traducir, hablar. Mi racha de idiomas ya va por 20 días.',a:'🧑'},
  {n:'Ana P.',r:'Kodo Code · Python',q:'Subir de nivel con confeti y ver a Kody celebrar es la mejor dopamina de mi día.',a:'👩‍🎓'}
 ];
-let U=null,view='landing',LS=null,OB=null,pending=[],curTab='code',curCourse=null,tickTimer=null,REC=null,authMode='register';
+let U=null,view='landing',LS=null,OB=null,pending=[],curTab='code',curCourse=null,tickTimer=null,REC=null,authMode='register',curProfileUsername=null;
 
 // ===== Kodo API — capa real sobre NestJS (backend = fuente de verdad para
 // XP/progreso/logros; el resto de esta app sigue controlando la experiencia
@@ -866,6 +908,16 @@ const KodoAPI={
   const headers={'Content-Type':'application/json'};
   if(ACCESS_TOKEN&&!opts.noAuth)headers['Authorization']='Bearer '+ACCESS_TOKEN;
   const res=await fetch(API_BASE+path,{method:method,headers:headers,body:body?JSON.stringify(body):undefined});
+  let data=null;try{data=await res.json();}catch(e){}
+  if(!res.ok){const msg=data&&(Array.isArray(data.message)?data.message.join(', '):data.message);const err=new Error(msg||('Error '+res.status));err.status=res.status;err.data=data;throw err;}
+  return data;
+ },
+ // Sin Content-Type manual a propósito: el navegador fija el boundary
+ // multipart correcto solo si no lo tocamos.
+ async requestForm(method,path,formData){
+  const headers={};
+  if(ACCESS_TOKEN)headers['Authorization']='Bearer '+ACCESS_TOKEN;
+  const res=await fetch(API_BASE+path,{method:method,headers:headers,body:formData});
   let data=null;try{data=await res.json();}catch(e){}
   if(!res.ok){const msg=data&&(Array.isArray(data.message)?data.message.join(', '):data.message);const err=new Error(msg||('Error '+res.status));err.status=res.status;err.data=data;throw err;}
   return data;
@@ -886,7 +938,22 @@ const KodoAPI={
  subscriptionCheckout(planKey){return this.request('POST','/subscriptions/checkout',{planKey:planKey});},
  subscriptionCancel(){return this.request('POST','/subscriptions/cancel');},
  refillHearts(){return this.request('POST','/learning/hearts/refill');},
- completeOnboarding(goalMin,product){return this.request('POST','/me/onboarding-complete',{goalMin:goalMin,product:product});}
+ completeOnboarding(goalMin,product){return this.request('POST','/me/onboarding-complete',{goalMin:goalMin,product:product});},
+ updateProfile(data){return this.request('PATCH','/me/profile',data);},
+ uploadAvatar(blob){const fd=new FormData();fd.append('file',blob,'avatar.webp');return this.requestForm('POST','/me/avatar',fd);},
+ deleteAvatar(){return this.request('DELETE','/me/avatar');},
+ searchUsers(q){return this.request('GET','/users/search?q='+encodeURIComponent(q));},
+ getPublicProfile(username){return this.request('GET','/users/'+encodeURIComponent(username));},
+ followUser(username){return this.request('POST','/users/'+encodeURIComponent(username)+'/follow');},
+ unfollowUser(username){return this.request('DELETE','/users/'+encodeURIComponent(username)+'/follow');},
+ getFollowers(username){return this.request('GET','/users/'+encodeURIComponent(username)+'/followers');},
+ getFollowing(username){return this.request('GET','/users/'+encodeURIComponent(username)+'/following');},
+ blockUser(username){return this.request('POST','/users/'+encodeURIComponent(username)+'/block');},
+ unblockUser(username){return this.request('DELETE','/users/'+encodeURIComponent(username)+'/block');},
+ reportUser(username,reason){return this.request('POST','/users/'+encodeURIComponent(username)+'/report',{reason:reason});},
+ getNotifications(opts){opts=opts||{};let qs='';if(opts.limit)qs='?limit='+opts.limit;if(opts.cursor)qs+=(qs?'&':'?')+'cursor='+encodeURIComponent(opts.cursor);return this.request('GET','/me/notifications'+qs);},
+ markNotificationRead(id){return this.request('POST','/me/notifications/'+encodeURIComponent(id)+'/read');},
+ markAllNotificationsRead(){return this.request('POST','/me/notifications/read-all');}
 };
 function slugUsername(name){
  let base=String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -912,6 +979,9 @@ function syncUserFromServer(serverUser){
  U.v=4;U.userId=serverUser.id;U.email=serverUser.email;
  if(profile.displayName)U.name=profile.displayName;
  if(profile.username)U.username=profile.username;
+ U.bio=profile.bio||'';
+ U.avatarUrl=profile.avatarUrl||null;
+ U.usernameChangedAt=profile.usernameChangedAt||null;
  // Onboarding server-authoritative: reemplaza el gate local (U.onb) que
  // vivía solo en localStorage y por eso reaparecía en cualquier dispositivo
  // o dominio nuevo (koda.school vs kodo-learning-platform.vercel.app, por
@@ -1117,6 +1187,7 @@ async function hydrateShopFromApi(force){
  }
 }
 function blankUser(name,email){return{v:4,name:name,email:email,created:Date.now(),onb:null,onboardingCompleted:false,
+ username:'',bio:'',avatarUrl:null,usernameChangedAt:null,
  xp:0,gems:30,hearts:5,pro:false,proPlan:'free',shield:0,
  streak:0,bestStreak:0,lastActive:'',week:[],weekXP:0,weekKey:weekKey(),
  done:{},day:{date:today(),ex:0,lessons:0,xp:0,perfect:0,runs:0,goalDone:false,claimed:[]},
@@ -1936,6 +2007,9 @@ async function go(v){
   await hydrateShopFromApi(true);
   if(view==='shop')render();
  }
+ // Fire-and-forget en cada navegación — sin esto el badge de la campana
+ // solo se refrescaría al recargar la página entera.
+ if(U&&ACCESS_TOKEN)refreshUnreadCount();
 }
 function goHome(){if(U&&U.onboardingCompleted){go('home');}else{go('landing');}}
 function render(){
@@ -2071,20 +2145,36 @@ function vShell(){
  else if(view==='review')body=vReview();
  else if(view==='practice')body=vPractice();
  else if(view==='ranking')body=vRanking();
+ else if(view==='search')body=vSearch();
+ else if(view==='publicProfile')body=vPublicProfile();
  else if(view==='shop')body=vShop();
  else body=vProfile();
  const li=lvlIndex();const inLearn=(view==='learn'||view==='course'||view==='vocab'||view==='review');
- return '<div class="shell"><aside class="side">'+logoHTML()+'<div style="height:14px"></div>'+sideTabs.map(t=>'<button class="snav '+((view===t[0]||(inLearn&&t[0]==='learn'))?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[2]+t[1]+'</button>').join('')
+ const inRanking=(view==='ranking'||view==='search'||view==='publicProfile');
+ return '<div class="shell"><aside class="side">'+logoHTML()+'<div style="height:14px"></div>'+sideTabs.map(t=>'<button class="snav '+((view===t[0]||(inLearn&&t[0]==='learn')||(inRanking&&t[0]==='ranking'))?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[2]+t[1]+'</button>').join('')
  +'<div style="flex:1"></div>'+(U.pro?'<div class="tag y" style="justify-content:center;margin-bottom:10px">👑 PRO activo</div>':'<button class="btn btn-ghost sm w100" style="margin-bottom:10px" onclick="go(\'pro\')">👑 Kodo Pro</button>')
- +'<div class="side-user" onclick="go(\'profile\')"><img src="'+M_HAPPY+'" alt=""><div><b>'+esc(U.name)+'</b><span>Nivel '+(li+1)+' · '+LEVELS[li][0]+'</span></div></div></aside>'
+ +'<div class="side-user" onclick="go(\'profile\')"><img src="'+esc(U.avatarUrl||M_HAPPY)+'" alt=""><div><b>'+esc(U.name)+'</b><span>Nivel '+(li+1)+' · '+LEVELS[li][0]+'</span></div></div></aside>'
  +'<main class="content">'+body+'</main>'
- +'<nav class="bnav glass">'+tabs.map(t=>'<button class="'+((view===t[0]||(inLearn&&t[0]==='learn'))?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[2]+t[1]+'</button>').join('')+'</nav></div>';}
+ +'<nav class="bnav glass">'+tabs.map(t=>'<button class="'+((view===t[0]||(inLearn&&t[0]==='learn')||(inRanking&&t[0]==='ranking'))?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[2]+t[1]+'</button>').join('')+'</nav></div>'
+ +'<button class="notif-bell" onclick="openNotifications()" aria-label="Notificaciones">🔔<span class="notif-badge" id="notif-badge"'+(NOTIF.unreadCount>0?'':' hidden')+'>'+(NOTIF.unreadCount>99?'99+':NOTIF.unreadCount)+'</span></button>';}
 function mascotHTML(size){
  let accs='';
  if(U.items.includes('crown')&&U.equip.crown)accs+='<span class="acc crown">👑</span>';
  if(U.items.includes('headphones')&&U.equip.headphones)accs+='<span class="acc headphones">🎧</span>';
  if(U.items.includes('glasses')&&U.equip.glasses)accs+='<span class="acc glasses">🕶️</span>';
  return '<div class="mascot-box" style="width:'+size+'px;height:'+size+'px"><img style="width:'+size+'px;height:'+size+'px;border-radius:'+(size/3)+'px" src="'+M_HAPPY+'" alt="Kody">'+accs+'</div>';}
+/** Igual que mascotHTML pero muestra la foto real del usuario si tiene una
+ * (avatarUrl), con el mismo tratamiento de accesorios equipados encima —
+ * Kody (mascotHTML) es la mascota de la app, esto es "tú". */
+function profileAvatarHTML(size,editable){
+ const src=U.avatarUrl||M_HAPPY;
+ let accs='';
+ if(U.items.includes('crown')&&U.equip.crown)accs+='<span class="acc crown">👑</span>';
+ if(U.items.includes('headphones')&&U.equip.headphones)accs+='<span class="acc headphones">🎧</span>';
+ if(U.items.includes('glasses')&&U.equip.glasses)accs+='<span class="acc glasses">🕶️</span>';
+ const badge=editable?'<div class="avatar-cam-badge">📷</div>':'';
+ const click=editable?' onclick="openEditProfile()"':'';
+ return '<div class="mascot-box'+(editable?' editable':'')+'" style="width:'+size+'px;height:'+size+'px"'+click+'><img style="width:'+size+'px;height:'+size+'px;border-radius:'+(size/3)+'px;object-fit:cover" src="'+esc(src)+'" alt="">'+accs+badge+'</div>';}
 function ringSVG(pct,size,stroke,color){const r=(size-stroke)/2,c=2*Math.PI*r,off=c*(1-Math.min(1,pct/100));
  return '<svg class="ring" width="'+size+'" height="'+size+'"><circle class="rbg" cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke-width="'+stroke+'"/><circle class="rfg" style="stroke:'+color+'" cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke-width="'+stroke+'" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'"/></svg>';}
 function weekHTML(){const now=new Date();const d=new Date(now);d.setDate(now.getDate()-((now.getDay()+6)%7));
@@ -2222,7 +2312,7 @@ async function loadRanking(){
  }
 }
 function vRanking(){
- let h='<h1 style="font-size:28px;font-weight:800;margin-bottom:6px">Ranking</h1><p style="color:var(--t2);font-weight:700;margin-bottom:18px">Compite de verdad: XP real de todos los que aprenden en Kodo.</p>';
+ let h='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap"><div><h1 style="font-size:28px;font-weight:800;margin-bottom:6px">Ranking</h1><p style="color:var(--t2);font-weight:700;margin-bottom:18px">Compite de verdad: XP real de todos los que aprenden en Kodo.</p></div><button class="btn btn-ghost sm" onclick="openSearch()">🔎 Buscar personas</button></div>';
  h+='<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">'+RANKING_PERIODS.map(function(p){return '<button class="btn '+(RK.period===p[0]?'btn-p':'btn-ghost')+' sm" onclick="setRankingPeriod(\''+p[0]+'\')">'+p[1]+'</button>';}).join('')+'</div>';
  if(RK.loading){h+='<div class="card" style="padding:36px;text-align:center;color:var(--t2);font-weight:700">Cargando ranking…</div>';return h;}
  if(RK.error){h+='<div class="card" style="padding:36px;text-align:center"><p style="color:var(--t2);font-weight:700;margin-bottom:14px">No se pudo cargar el ranking. Revisa tu conexión.</p><button class="btn btn-p sm" onclick="loadRanking()">Reintentar</button></div>';return h;}
@@ -2234,13 +2324,256 @@ function vRanking(){
   const isMe=!!U.username&&r.username===U.username;
   if(isMe)meInTop=true;
   const medal=r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':r.rank;
-  h+='<div class="lrow'+(isMe?' cur':'')+'" style="cursor:default;margin-bottom:8px"><div class="st" style="font-size:16px">'+medal+'</div><div class="tt"><b>'+esc(r.displayName)+(isMe?' (tú)':'')+'</b><span>@'+esc(r.username)+'</span></div><span class="tag '+(isMe?'p':'')+'">'+fmtN(r.xp)+' XP</span></div>';
+  const rowClick=isMe?' style="cursor:default;margin-bottom:8px"':' style="margin-bottom:8px" onclick="openProfile(\''+esc(r.username)+'\')"';
+  h+='<div class="lrow'+(isMe?' cur':'')+'"'+rowClick+'><div class="st" style="font-size:16px">'+medal+'</div><div class="tt"><b>'+esc(r.displayName)+(isMe?' (tú)':'')+'</b><span>@'+esc(r.username)+'</span></div><span class="tag '+(isMe?'p':'')+'">'+fmtN(r.xp)+' XP</span></div>';
  });
  if(!meInTop&&data.me){
   h+='<div style="margin:14px 0 10px;border-top:1px dashed var(--bd);padding-top:14px;color:var(--t2);font-weight:700;font-size:12.5px">Tu posición</div>';
   h+='<div class="lrow cur" style="cursor:default"><div class="st" style="font-size:16px">'+data.me.rank+'</div><div class="tt"><b>'+esc(U.name)+' (tú)</b></div><span class="tag p">'+fmtN(data.me.xp)+' XP</span></div>';
  }
  return h+'</div>';}
+
+// ===== Buscar personas =====
+let SEARCH={q:'',loading:false,error:null,items:null};
+let searchDebounceTimer=null;
+function openSearch(){
+ SEARCH={q:'',loading:false,error:null,items:null};
+ view='search';render();window.scrollTo(0,0);
+ const inp=document.getElementById('search-input');if(inp)inp.focus();
+}
+function onSearchInput(v){
+ SEARCH.q=v;
+ clearTimeout(searchDebounceTimer);
+ if(v.trim().length<2){SEARCH.items=null;SEARCH.error=null;SEARCH.loading=false;renderSearchResults();return;}
+ searchDebounceTimer=setTimeout(runSearch,350);
+}
+async function runSearch(){
+ const q=SEARCH.q.trim();
+ if(q.length<2)return;
+ SEARCH.loading=true;SEARCH.error=null;renderSearchResults();
+ try{
+  const res=await KodoAPI.searchUsers(q);
+  if(SEARCH.q.trim()!==q)return; // el usuario ya escribió otra cosa mientras esta respuesta viajaba
+  SEARCH.items=res.items;SEARCH.loading=false;renderSearchResults();
+ }catch(e){
+  if(SEARCH.q.trim()!==q)return;
+  SEARCH.loading=false;SEARCH.error=e.message||'No se pudo buscar.';renderSearchResults();
+ }
+}
+function renderSearchResults(){const el=document.getElementById('search-results');if(el)el.innerHTML=searchResultsHTML();}
+function searchResultsHTML(){
+ if(SEARCH.q.trim().length<2)return '<p style="color:var(--t2);font-weight:700;padding:10px 0">Escribe al menos 2 caracteres para buscar.</p>';
+ if(SEARCH.loading)return '<div class="card" style="padding:30px;text-align:center;color:var(--t2);font-weight:700">Buscando…</div>';
+ if(SEARCH.error)return '<div class="card" style="padding:30px;text-align:center;color:var(--t2);font-weight:700">'+esc(SEARCH.error)+'</div>';
+ if(!SEARCH.items||!SEARCH.items.length)return '<div class="card" style="padding:30px;text-align:center;color:var(--t2);font-weight:700">Nadie encontrado con ese nombre.</div>';
+ return SEARCH.items.map(function(u){
+  return '<div class="lrow" style="margin-bottom:8px" onclick="openProfile(\''+esc(u.username)+'\')"><img src="'+esc(u.avatarUrl||M_HAPPY)+'" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0"><div class="tt"><b>'+esc(u.displayName)+'</b><span>@'+esc(u.username)+'</span></div><span class="tag">⚡ Nivel '+u.level+'</span><span class="tag">🔥 '+u.streak+'</span></div>';
+ }).join('');
+}
+function vSearch(){
+ return '<button class="btn btn-ghost sm" style="margin-bottom:18px" onclick="go(\'ranking\')">← Volver</button>'
+ +'<h1 style="font-size:28px;font-weight:800;margin-bottom:6px">🔎 Buscar personas</h1>'
+ +'<p style="color:var(--t2);font-weight:700;margin-bottom:18px">Encuentra a otros estudiantes de Kodo por su @usuario o nombre.</p>'
+ +'<div class="field"><input id="search-input" value="'+esc(SEARCH.q)+'" placeholder="Busca por @usuario o nombre…" oninput="onSearchInput(this.value)"></div>'
+ +'<div id="search-results" style="margin-top:8px">'+searchResultsHTML()+'</div>';
+}
+
+// ===== Perfil público =====
+let PUB={loading:false,error:null,data:null,username:null};
+function openProfile(username){
+ if(U.username&&username===U.username){go('profile');return;}
+ curProfileUsername=username;
+ PUB={loading:true,error:null,data:null,username:username};
+ view='publicProfile';render();window.scrollTo(0,0);
+ loadPublicProfile();
+}
+async function loadPublicProfile(){
+ const username=curProfileUsername;
+ try{
+  const res=await KodoAPI.getPublicProfile(username);
+  if(curProfileUsername!==username)return;
+  PUB={loading:false,error:null,data:res,username:username};render();
+ }catch(e){
+  if(curProfileUsername!==username)return;
+  PUB={loading:false,error:(e.status===404?'not_found':(e.message||'No se pudo cargar el perfil.')),data:null,username:username};render();
+ }
+}
+function vPublicProfile(){
+ const back='<button class="btn btn-ghost sm" style="margin-bottom:18px" onclick="go(\'ranking\')">← Volver</button>';
+ if(PUB.loading)return back+'<div class="card" style="padding:60px;text-align:center;color:var(--t2);font-weight:700">Cargando perfil…</div>';
+ if(PUB.error==='not_found')return back+'<div class="card" style="padding:60px;text-align:center"><div style="font-size:44px;margin-bottom:10px">🤷</div><p style="color:var(--t2);font-weight:700">No encontramos a ese usuario.</p></div>';
+ if(PUB.error)return back+'<div class="card" style="padding:60px;text-align:center"><p style="color:var(--t2);font-weight:700;margin-bottom:14px">'+esc(PUB.error)+'</p><button class="btn btn-p sm" onclick="loadPublicProfile()">Reintentar</button></div>';
+ const p=PUB.data;
+ const followBtn=p.isFollowing
+  ?'<button class="btn btn-ghost pub-follow-btn" id="pub-follow-btn" onclick="toggleFollow(false)">✓ Siguiendo</button>'
+  :'<button class="btn btn-p pub-follow-btn" id="pub-follow-btn" onclick="toggleFollow(true)">+ Seguir</button>';
+ let h=back+'<div class="card pub-prof-card">'
+  +'<img class="pub-avatar" src="'+esc(p.avatarUrl||M_HAPPY)+'" alt="">'
+  +'<h1 class="pub-name">'+esc(p.displayName)+'</h1>'
+  +'<p class="pub-username">@'+esc(p.username)+'</p>'
+  +(p.bio?'<p class="pub-bio">'+esc(p.bio)+'</p>':'')
+  +'<div class="pub-stats"><span class="tag p">⚡ Nivel '+p.level+'</span><span class="tag">🔥 '+p.streak+' días</span></div>'
+  +'<div class="pub-counts"><span onclick="openPeopleList(\''+esc(p.username)+'\',\'followers\')">'+fmtN(p.followersCount)+' <small>seguidores</small></span><span onclick="openPeopleList(\''+esc(p.username)+'\',\'following\')">'+fmtN(p.followingCount)+' <small>siguiendo</small></span></div>'
+  +followBtn
+  +'<div class="pub-actions"><button class="btn-link" onclick="confirmBlockUser(\''+esc(p.username)+'\')">Bloquear</button><span>·</span><button class="btn-link" onclick="openReportModal(\''+esc(p.username)+'\')">Reportar</button></div>'
+ +'</div>';
+ h+='<div style="max-width:640px;margin:0 auto"><h3 style="margin:26px 0 14px;font-size:18px;text-align:center">🏆 Logros</h3>';
+ const unlocked=(p.achievements||[]).map(function(key){return ACHS.find(function(a){return a.id===key;});}).filter(Boolean);
+ h+=unlocked.length
+  ?'<div class="ach-grid">'+unlocked.map(function(a){return '<div class="card ach"><div class="ic">'+a.ic+'</div><b>'+a.name+'</b></div>';}).join('')+'</div>'
+  :'<p style="color:var(--t2);font-weight:700;text-align:center">Todavía no desbloquea logros.</p>';
+ return h+'</div>';
+}
+async function toggleFollow(follow){
+ const btn=document.getElementById('pub-follow-btn');
+ if(btn)btn.disabled=true;
+ const username=PUB.username;
+ try{
+  const res=follow?await KodoAPI.followUser(username):await KodoAPI.unfollowUser(username);
+  if(PUB.username!==username)return;
+  PUB.data.isFollowing=res.following;PUB.data.followersCount=res.followersCount;
+  sClick();render();
+ }catch(e){
+  if(btn)btn.disabled=false;
+  toast('❌ '+(e.message||'No se pudo actualizar. Intenta de nuevo.'));
+ }
+}
+
+// ===== Seguidores / Siguiendo (modal) =====
+let PPL={loading:false,error:null,items:null,mode:null,username:null};
+function peopleListModalHTML(){
+ const title=PPL.mode==='followers'?'Seguidores':'Siguiendo';
+ let body;
+ if(PPL.loading)body='<div style="padding:30px;text-align:center;color:var(--t2);font-weight:700">Cargando…</div>';
+ else if(PPL.error)body='<div style="padding:30px;text-align:center;color:var(--t2);font-weight:700">'+esc(PPL.error)+'</div>';
+ else if(!PPL.items||!PPL.items.length)body='<div style="padding:30px;text-align:center;color:var(--t2);font-weight:700">'+(PPL.mode==='followers'?'Todavía nadie sigue a este usuario.':'Todavía no sigue a nadie.')+'</div>';
+ else body=PPL.items.map(function(u){return '<div class="lrow" style="margin-bottom:8px" onclick="closeModal();openProfile(\''+esc(u.username)+'\')"><img src="'+esc(u.avatarUrl||M_HAPPY)+'" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0"><div class="tt"><b>'+esc(u.displayName)+'</b><span>@'+esc(u.username)+'</span></div><span class="tag">⚡ '+u.level+'</span></div>';}).join('');
+ return '<h2>'+title+'</h2><div style="max-height:50vh;overflow-y:auto;margin:16px 0;text-align:left">'+body+'</div><button class="btn btn-ghost w100" onclick="closeModal()">Cerrar</button>';
+}
+async function openPeopleList(username,mode){
+ PPL={loading:true,error:null,items:null,mode:mode,username:username};
+ openModal(peopleListModalHTML());
+ try{
+  const res=mode==='followers'?await KodoAPI.getFollowers(username):await KodoAPI.getFollowing(username);
+  if(PPL.username!==username||PPL.mode!==mode)return;
+  PPL.loading=false;PPL.items=res.items;
+ }catch(e){
+  if(PPL.username!==username||PPL.mode!==mode)return;
+  PPL.loading=false;PPL.error=e.message||'No se pudo cargar la lista.';
+ }
+ const root=document.querySelector('#modal-root .modal');if(root)root.innerHTML=peopleListModalHTML();
+}
+
+// ===== Bloquear / Reportar =====
+function confirmBlockUser(username){
+ openModal('<div class="big-n">🚫</div><h2>¿Bloquear a @'+esc(username)+'?</h2><p class="sub">Dejarán de seguirse mutuamente. No podrá volver a seguirte ni encontrarte en la búsqueda.</p><button class="btn btn-err w100" onclick="doBlockUser(\''+esc(username)+'\')">Sí, bloquear</button><button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cancelar</button>');
+}
+async function doBlockUser(username){
+ try{
+  await KodoAPI.blockUser(username);
+  closeModal();toast('🚫 Bloqueaste a @'+esc(username)+'.');
+  go('ranking');
+ }catch(e){toast('❌ No se pudo bloquear. Intenta de nuevo.');}
+}
+function openReportModal(username){
+ openModal('<h2>Reportar a @'+esc(username)+'</h2><p class="sub" style="text-align:left">Cuéntanos qué está pasando — nuestro equipo lo revisará.</p><div class="field" style="text-align:left"><textarea id="report-reason" class="ep-textarea" maxlength="500" placeholder="Describe el problema…"></textarea></div><div class="ep-error" id="report-error" hidden></div><button class="btn btn-err w100" id="report-btn" onclick="submitReport(\''+esc(username)+'\')">Enviar reporte</button><button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cancelar</button>');
+}
+async function submitReport(username){
+ const reason=document.getElementById('report-reason').value.trim();
+ const errBox=document.getElementById('report-error');
+ if(reason.length<3){errBox.hidden=false;errBox.textContent='Cuéntanos un poco más (mínimo 3 caracteres).';return;}
+ const btn=document.getElementById('report-btn');btn.disabled=true;btn.textContent='Enviando…';
+ try{
+  await KodoAPI.reportUser(username,reason);
+  closeModal();toast('✅ Reporte enviado. Gracias por ayudarnos a cuidar Kodo.');
+ }catch(e){
+  btn.disabled=false;btn.textContent='Enviar reporte';
+  errBox.hidden=false;errBox.textContent=e.message||'No se pudo enviar el reporte.';
+ }
+}
+
+// ===== Notificaciones =====
+let NOTIF={unreadCount:0,items:null,loading:false,error:null};
+function timeAgo(iso){
+ const diff=(Date.now()-new Date(iso).getTime())/1000;
+ if(diff<60)return 'hace un momento';
+ if(diff<3600)return 'hace '+Math.floor(diff/60)+' min';
+ if(diff<86400)return 'hace '+Math.floor(diff/3600)+' h';
+ if(diff<172800)return 'ayer';
+ if(diff<604800)return 'hace '+Math.floor(diff/86400)+' días';
+ return new Date(iso).toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+}
+function updateBellBadge(){
+ const el=document.getElementById('notif-badge');
+ if(!el)return;
+ if(NOTIF.unreadCount>0){el.textContent=NOTIF.unreadCount>99?'99+':String(NOTIF.unreadCount);el.hidden=false;}
+ else el.hidden=true;
+}
+/** Fire-and-forget a propósito — se llama en cada navegación (go()) y al
+ * arrancar sesión, así el badge se mantiene razonablemente al día sin
+ * necesitar un timer de polling dedicado (fuera de alcance para esta
+ * primera versión, que no incluye tiempo real). */
+async function refreshUnreadCount(){
+ if(!U||!ACCESS_TOKEN)return;
+ try{
+  const res=await KodoAPI.getNotifications({limit:1});
+  NOTIF.unreadCount=res.unreadCount;
+  updateBellBadge();
+ }catch(e){/* silencioso: el badge simplemente no se actualiza esta vez */}
+}
+function notifRowHTML(n){
+ // Primera versión: solo NEW_FOLLOWER tiene UI. ACHIEVEMENT_UNLOCKED/LEVEL_UP
+ // ya existen en el backend pero se dejan sin renderizar a propósito.
+ if(n.type!=='NEW_FOLLOWER'||!n.actor)return '';
+ const unread=!n.readAt;
+ return '<div class="notif-row'+(unread?' unread':'')+'" onclick="openNotification(\''+n.id+'\',\''+esc(n.actor.username)+'\')">'
+  +'<img src="'+esc(n.actor.avatarUrl||M_HAPPY)+'" alt="" class="notif-av">'
+  +'<div class="notif-body"><b>'+esc(n.actor.displayName)+'</b> <span>empezó a seguirte</span><small>'+timeAgo(n.createdAt)+'</small></div>'
+  +(unread?'<span class="notif-dot"></span>':'')
+ +'</div>';
+}
+function notifPanelHTML(){
+ let body;
+ if(NOTIF.loading)body='<div style="padding:30px;text-align:center;color:var(--t2);font-weight:700">Cargando…</div>';
+ else if(NOTIF.error)body='<div style="padding:30px;text-align:center;color:var(--t2);font-weight:700">'+esc(NOTIF.error)+'</div>';
+ else if(!NOTIF.items||!NOTIF.items.length)body='<div style="padding:34px 10px;text-align:center"><div style="font-size:42px;margin-bottom:12px">🔔</div><p style="font-weight:800;margin-bottom:6px">Todo tranquilo por aquí</p><p style="color:var(--t2);font-weight:600;font-size:13.5px">Cuando alguien interactúe contigo, aparecerá aquí.</p></div>';
+ else body=NOTIF.items.map(notifRowHTML).join('');
+ const footer=(NOTIF.items&&NOTIF.items.length&&NOTIF.unreadCount>0)?'<button class="btn btn-ghost w100" style="margin-top:14px" onclick="markAllNotifsRead()">Marcar todas como leídas</button>':'';
+ return '<h2>🔔 Notificaciones</h2><div style="max-height:56vh;overflow-y:auto;margin:16px 0;text-align:left">'+body+'</div>'+footer+'<button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cerrar</button>';
+}
+function refreshNotifModal(){const root=document.querySelector('#modal-root .modal');if(root)root.innerHTML=notifPanelHTML();}
+async function openNotifications(){
+ NOTIF.loading=true;NOTIF.error=null;
+ openModal(notifPanelHTML());
+ try{
+  const res=await KodoAPI.getNotifications({limit:30});
+  NOTIF.loading=false;NOTIF.items=res.items;NOTIF.unreadCount=res.unreadCount;
+  updateBellBadge();
+ }catch(e){
+  NOTIF.loading=false;NOTIF.error=e.message||'No se pudo cargar tus notificaciones.';
+ }
+ refreshNotifModal();
+}
+async function openNotification(id,username){
+ const item=(NOTIF.items||[]).find(function(n){return n.id===id;});
+ const wasUnread=!!item&&!item.readAt;
+ closeModal();
+ openProfile(username);
+ try{
+  await KodoAPI.markNotificationRead(id);
+  if(item)item.readAt=new Date().toISOString();
+  if(wasUnread){NOTIF.unreadCount=Math.max(0,NOTIF.unreadCount-1);updateBellBadge();}
+ }catch(e){/* no crítico: la notificación queda sin marcar, se puede reintentar */}
+}
+async function markAllNotifsRead(){
+ try{
+  await KodoAPI.markAllNotificationsRead();
+  (NOTIF.items||[]).forEach(function(n){if(!n.readAt)n.readAt=new Date().toISOString();});
+  NOTIF.unreadCount=0;updateBellBadge();
+  refreshNotifModal();
+ }catch(e){toast('❌ No se pudo actualizar. Intenta de nuevo.');}
+}
+
 function vShop(){
  let h='<h1 style="font-size:28px;font-weight:800;margin-bottom:6px">Tienda</h1><p style="color:var(--t2);font-weight:700;margin-bottom:20px">Gana 💎 con lecciones, retos y logros. Comprar nunca es obligatorio.</p><div class="tag y" style="font-size:15px;margin-bottom:22px">💎 '+fmtN(U.gems)+' gemas</div><div class="shop-grid">';
  SHOP.forEach(it=>{const owned=U.items.includes(it.id);const consumible=['hearts','shield','boost'].includes(it.id);
@@ -2285,7 +2618,7 @@ function vProfile(){
  const courses=COURSES.filter(c=>flatLessons(c).length&&flatLessons(c).every(l=>U.done[l])).length;
  const started=COURSES.filter(c=>flatLessons(c).some(l=>U.done[l])).length;
  const enC=COURSES.find(x=>x.id==='en');
- let h='<div class="card prof-head">'+mascotHTML(110)+'<div style="flex:1;min-width:220px"><h1 style="font-size:26px;font-weight:800">'+esc(U.name)+(U.pro?' <span class="tag y">👑 PRO</span>':'')+'</h1><p style="color:var(--t2);font-weight:700">'+(U.username?'@'+esc(U.username)+' · ':'')+esc(U.email)+'</p><p style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><span class="tag p">Nivel '+(li+1)+' · '+LEVELS[li][0]+'</span> <span class="tag">🔥 '+U.streak+' días (mejor: '+U.bestStreak+')</span> <span class="tag c">💎 '+fmtN(U.gems)+'</span></p></div><div style="min-width:220px;flex:1"><p style="color:var(--t2);font-weight:700;font-size:13px;margin-bottom:8px">'+fmtN(U.xp)+' / '+(next?fmtN(next):'MAX')+' XP</p><div class="pbar"><div style="width:'+(next?Math.max(0,Math.round(100*(U.xp-base)/(next-base))):100)+'%"></div></div></div></div>';
+ let h='<div class="card prof-head">'+profileAvatarHTML(110,true)+'<div style="flex:1;min-width:220px"><h1 style="font-size:26px;font-weight:800">'+esc(U.name)+(U.pro?' <span class="tag y">👑 PRO</span>':'')+'</h1>'+(U.username?'<p style="color:var(--t2);font-weight:700">@'+esc(U.username)+'</p>':'')+'<p style="color:var(--t2);font-weight:600;font-size:12px;opacity:.65;margin-top:2px">'+esc(U.email)+'</p>'+(U.bio?'<p style="margin-top:8px;color:var(--t);font-weight:600;font-size:14.5px">'+esc(U.bio)+'</p>':'')+'<p style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><span class="tag p">Nivel '+(li+1)+' · '+LEVELS[li][0]+'</span> <span class="tag">🔥 '+U.streak+' días (mejor: '+U.bestStreak+')</span> <span class="tag c">💎 '+fmtN(U.gems)+'</span></p><button class="btn btn-ghost sm" style="margin-top:14px" onclick="openEditProfile()">✏️ Editar perfil</button></div><div style="min-width:220px;flex:1"><p style="color:var(--t2);font-weight:700;font-size:13px;margin-bottom:8px">'+fmtN(U.xp)+' / '+(next?fmtN(next):'MAX')+' XP</p><div class="pbar"><div style="width:'+(next?Math.max(0,Math.round(100*(U.xp-base)/(next-base))):100)+'%"></div></div></div></div>';
  h+='<div class="stat-row" style="margin-top:20px">'
  +'<div class="card stat"><span class="v">📈 '+fmtN(U.day.xp)+'</span><span class="l">XP hoy</span></div>'
  +'<div class="card stat"><span class="v">📅 '+fmtN(U.weekXP)+'</span><span class="l">XP esta semana</span></div>'
@@ -2310,6 +2643,115 @@ function vProfile(){
  h+='</div>';
  h+='<div style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap">'+(U.pro?'':'<button class="btn btn-p" onclick="go(\'pro\')">👑 Hazte Pro</button>')+'<button class="btn btn-ghost" onclick="openGoalPicker()">🎯 Cambiar meta diaria</button>'+(U.userId?'<button class="btn btn-ghost" onclick="doLogout()">🚪 Cerrar sesión</button>':'')+'<button class="btn btn-err" onclick="confirmReset()">Reiniciar demo</button></div>';
  return h;}
+
+// ===== Editar perfil: nombre, @username, bio, avatar =====
+let epAvatarBlob=null,epAvatarRemoved=false,epAvatarPreviewUrl=null;
+function usernameCooldownDaysLeft(){
+ if(!U.usernameChangedAt)return 0;
+ const days=(Date.now()-new Date(U.usernameChangedAt).getTime())/86400000;
+ return Math.max(0,Math.ceil(30-days));
+}
+/** Recorta al cuadrado central (sin UI de arrastre — mantiene esto simple)
+ * y reescala a 512px, devuelto como webp para que el archivo real que
+ * sube sea liviano sin importar la foto original. */
+function cropImageToSquareWebp(file){
+ return new Promise(function(resolve,reject){
+  const reader=new FileReader();
+  reader.onload=function(){
+   const img=new Image();
+   img.onload=function(){
+    const size=Math.min(img.width,img.height);
+    const sx=(img.width-size)/2,sy=(img.height-size)/2;
+    const out=512;
+    const canvas=document.createElement('canvas');
+    canvas.width=out;canvas.height=out;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,sx,sy,size,size,0,0,out,out);
+    canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('No se pudo procesar la imagen.'));},'image/webp',0.9);
+   };
+   img.onerror=function(){reject(new Error('Esa imagen no se pudo abrir.'));};
+   img.src=reader.result;
+  };
+  reader.onerror=function(){reject(new Error('No se pudo leer el archivo.'));};
+  reader.readAsDataURL(file);
+ });
+}
+function openEditProfile(){
+ epAvatarBlob=null;epAvatarRemoved=false;
+ if(epAvatarPreviewUrl){URL.revokeObjectURL(epAvatarPreviewUrl);epAvatarPreviewUrl=null;}
+ const daysLeft=usernameCooldownDaysLeft();
+ const hint=daysLeft>0?('Podrás cambiarlo de nuevo en '+daysLeft+' día'+(daysLeft===1?'':'s')+'.'):'Letras, números y guion bajo · cambiarlo tiene un enfriamiento de 30 días.';
+ openModal(
+  '<h2>Editar perfil</h2>'
+  +'<div class="ep-avatar-wrap">'
+   +'<div class="ep-avatar-box" onclick="document.getElementById(\'ep-avatar-input\').click()"><img id="ep-avatar-img" src="'+esc(U.avatarUrl||M_HAPPY)+'" alt=""><div class="ep-avatar-cam">📷</div></div>'
+   +'<input type="file" id="ep-avatar-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="epPickAvatar(event)">'
+   +'<button class="btn btn-ghost sm" id="ep-remove-btn" onclick="epRemoveAvatar()"'+(U.avatarUrl?'':' hidden')+'>Eliminar foto</button>'
+  +'</div>'
+  +'<div class="field" style="text-align:left"><label>Nombre</label><input id="ep-name" value="'+esc(U.name||'')+'" maxlength="40"></div>'
+  +'<div class="field" style="text-align:left"><label>Usuario</label><div class="ep-username-row"><span>@</span><input id="ep-username" value="'+esc(U.username||'')+'" maxlength="24"></div><p class="ep-hint">'+hint+'</p></div>'
+  +'<div class="field" style="text-align:left"><label>Biografía</label><textarea id="ep-bio" class="ep-textarea" maxlength="160" oninput="epBioCount()">'+esc(U.bio||'')+'</textarea><p class="ep-hint" id="ep-bio-count">'+(U.bio||'').length+'/160</p></div>'
+  +'<div class="ep-error" id="ep-error" hidden></div>'
+  +'<button class="btn btn-p w100" id="ep-save-btn" onclick="epSave()">Guardar cambios</button>'
+  +'<button class="btn btn-ghost w100" style="margin-top:10px" onclick="closeModal()">Cancelar</button>'
+ );
+}
+async function epPickAvatar(event){
+ const file=event.target.files&&event.target.files[0];
+ event.target.value='';
+ if(!file)return;
+ const allowed=['image/jpeg','image/png','image/webp'];
+ if(!allowed.includes(file.type)){toast('❌ Formato no permitido. Usa JPG, PNG o WEBP.');return;}
+ if(file.size>8*1024*1024){toast('❌ La imagen es demasiado grande (máx. 8MB).');return;}
+ try{
+  const blob=await cropImageToSquareWebp(file);
+  epAvatarBlob=blob;epAvatarRemoved=false;
+  if(epAvatarPreviewUrl)URL.revokeObjectURL(epAvatarPreviewUrl);
+  epAvatarPreviewUrl=URL.createObjectURL(blob);
+  const img=document.getElementById('ep-avatar-img');if(img)img.src=epAvatarPreviewUrl;
+  const rmBtn=document.getElementById('ep-remove-btn');if(rmBtn)rmBtn.hidden=false;
+ }catch(e){toast('❌ '+(e.message||'No se pudo procesar la imagen.'));}
+}
+function epRemoveAvatar(){
+ epAvatarBlob=null;epAvatarRemoved=true;
+ if(epAvatarPreviewUrl){URL.revokeObjectURL(epAvatarPreviewUrl);epAvatarPreviewUrl=null;}
+ const img=document.getElementById('ep-avatar-img');if(img)img.src=M_HAPPY;
+ const rmBtn=document.getElementById('ep-remove-btn');if(rmBtn)rmBtn.hidden=true;
+}
+function epBioCount(){
+ const el=document.getElementById('ep-bio'),c=document.getElementById('ep-bio-count');
+ if(el&&c)c.textContent=el.value.length+'/160';
+}
+async function epSave(){
+ const btn=document.getElementById('ep-save-btn'),errBox=document.getElementById('ep-error');
+ errBox.hidden=true;
+ const name=document.getElementById('ep-name').value.trim();
+ const username=document.getElementById('ep-username').value.trim();
+ const bio=document.getElementById('ep-bio').value;
+ if(name.length<2){errBox.hidden=false;errBox.textContent='El nombre debe tener al menos 2 caracteres.';return;}
+ if(username.length<3||!/^[a-zA-Z0-9_]+$/.test(username)){errBox.hidden=false;errBox.textContent='El usuario debe tener al menos 3 caracteres: letras, números y guion bajo.';return;}
+ btn.disabled=true;btn.textContent='Guardando…';
+ try{
+  const updated=await KodoAPI.updateProfile({displayName:name,username:username,bio:bio});
+  U.name=name;U.username=updated.username;U.bio=updated.bio||'';U.usernameChangedAt=updated.usernameChangedAt;
+  saveU();
+ }catch(e){
+  btn.disabled=false;btn.textContent='Guardar cambios';
+  errBox.hidden=false;errBox.textContent=e.message||'No se pudo guardar el perfil.';
+  return;
+ }
+ try{
+  if(epAvatarRemoved){const res=await KodoAPI.deleteAvatar();U.avatarUrl=res.avatarUrl;saveU();}
+  else if(epAvatarBlob){const res=await KodoAPI.uploadAvatar(epAvatarBlob);U.avatarUrl=res.avatarUrl;saveU();}
+ }catch(e){
+  btn.disabled=false;btn.textContent='Guardar cambios';
+  toast('✅ Perfil actualizado, pero la foto no se pudo guardar: '+(e.message||'intenta de nuevo.'));
+  closeModal();render();
+  return;
+ }
+ sGood();toast('✅ Perfil actualizado.');closeModal();render();
+}
+
 async function toggleEquip(k){
  const next=!U.equip[k];
  try{
@@ -2812,6 +3254,7 @@ async function bootAuth(){
   }
  }
  render();
+ if(U&&ACCESS_TOKEN)refreshUnreadCount();
 }
 view='landing';render();
 bootAuth();
