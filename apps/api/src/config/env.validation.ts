@@ -41,6 +41,13 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   TRUST_PROXY?: string;
+
+  // Opcional a propósito: sin ella, la subida de avatares responde 503 en
+  // vez de romper el boot — permite seguir desarrollando localmente antes
+  // de haber conectado el Blob store en este entorno (ver avatar.service.ts).
+  @IsOptional()
+  @IsString()
+  BLOB_READ_WRITE_TOKEN?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

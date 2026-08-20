@@ -13,6 +13,8 @@ import { RankingModule } from './ranking/ranking.module';
 import { VocabularyModule } from './vocabulary/vocabulary.module';
 import { ShopModule } from './shop/shop.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { SocialModule } from './social/social.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -29,6 +31,8 @@ import { validateEnv } from './config/env.validation';
     VocabularyModule,
     ShopModule,
     SubscriptionsModule,
+    SocialModule,
+    NotificationsModule,
   ],
   providers: [
     {

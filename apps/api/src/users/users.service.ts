@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@kodo/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+
+const USERNAME_COOLDOWN_DAYS = 30;
 
 @Injectable()
 export class UsersService {
@@ -109,6 +113,48 @@ export class UsersService {
       onboardingCompleted: profile.onboardingCompleted,
       goalMin: profile.goalMin,
       product: profile.product,
+    };
+  }
+
+  /** No admite avatarUrl — ese campo solo se modifica a través del flujo de
+   * avatar (avatar.service.ts), que valida el blob subido de verdad antes
+   * de persistir. Un cambio de username paga un cooldown de 30 días y deja
+   * rastro en UsernameHistory (soporte/abuso), no solo se sobrescribe. */
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const current = await this.prisma.userProfile.findUnique({ where: { userId } });
+    if (!current) {
+      throw new NotFoundException('Perfil no encontrado.');
+    }
+
+    const data: Prisma.UserProfileUpdateInput = {};
+    if (dto.displayName !== undefined) data.displayName = dto.displayName;
+    if (dto.bio !== undefined) data.bio = dto.bio;
+
+    if (dto.username !== undefined && dto.username !== current.username) {
+      if (current.usernameChangedAt) {
+        const daysSince = (Date.now() - current.usernameChangedAt.getTime()) / 86_400_000;
+        if (daysSince < USERNAME_COOLDOWN_DAYS) {
+          const daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince);
+          throw new BadRequestException(`Puedes cambiar tu nombre de usuario en ${daysLeft} día(s) más.`);
+        }
+      }
+      const taken = await this.prisma.userProfile.findUnique({ where: { username: dto.username } });
+      if (taken) {
+        throw new ConflictException('Ese nombre de usuario ya está en uso.');
+      }
+
+      await this.prisma.usernameHistory.create({ data: { userId, username: current.username } });
+      data.username = dto.username;
+      data.usernameChangedAt = new Date();
+    }
+
+    const updated = await this.prisma.userProfile.update({ where: { userId }, data });
+    return {
+      username: updated.username,
+      displayName: updated.displayName,
+      bio: updated.bio,
+      avatarUrl: updated.avatarUrl,
+      usernameChangedAt: updated.usernameChangedAt,
     };
   }
 }
