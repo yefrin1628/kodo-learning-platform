@@ -28,7 +28,9 @@ La **API** (`kodo-learning-platform-api` en Vercel) tiene el **auto-deploy por G
 }
 ```
 
-Verificado contra la documentación oficial de Vercel antes de aplicarlo: esta es la opción **no deprecada** (reemplaza a `github.enabled`, que si está en `false` sí bloquea también los Deploy Hooks — por eso NO se usa esa). `git.deploymentEnabled` solo desactiva el auto-deploy por push; los Deploy Hooks siguen funcionando sin restricción, según la documentación y reportes de la comunidad de Vercel.
+Verificado contra la documentación oficial de Vercel antes de aplicarlo: esta es la opción **no deprecada** (reemplaza a `github.enabled`, que si está en `false` sí bloquea también los Deploy Hooks — por eso NO se usa esa). `git.deploymentEnabled` solo desactiva el auto-deploy por push; los Deploy Hooks siguen funcionando sin restricción.
+
+Confirmado con un push de prueba real a `main` (commit `4f907ce`, el mismo que introdujo esta configuración): el deployment resultante en el dashboard de Vercel muestra **Source: Deploy Hook** (no Git) y quedó como el deployment vigente de Production — es decir, no hubo un segundo deploy automático disparado directamente por el push. `git.deploymentEnabled` funciona como se esperaba en este proyecto.
 
 Con esto, la API solo se despliega cuando este workflow llama a su Deploy Hook, y solo después de que la migración haya sido aplicada con éxito.
 
